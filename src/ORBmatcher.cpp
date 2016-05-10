@@ -43,6 +43,9 @@ ORBmatcher::ORBmatcher(float nnratio, bool checkOri): mfNNratio(nnratio), mbChec
 }
 
 // 将Local MapPoint投影到Frame中, 由此增加Frame中MapPoint
+// 通过重投影的办法获得一些地图中的点与当前帧特征点的匹配
+// 像素搜索范围和尺度范围之前已经计算出来
+// 只有被标记的点才会进行匹配搜索
 int ORBmatcher::SearchByProjection(Frame &F, const vector<MapPoint*> &vpMapPoints, const float th)
 {
     int nmatches=0;
@@ -52,18 +55,22 @@ int ORBmatcher::SearchByProjection(Frame &F, const vector<MapPoint*> &vpMapPoint
     for(size_t iMP=0; iMP<vpMapPoints.size(); iMP++)
     {
         MapPoint* pMP = vpMapPoints[iMP];
+
+        // 判断该点是否要投影
         if(!pMP->mbTrackInView)
             continue;
 
         if(pMP->isBad())
             continue;
-
+			
+        // 通过距离预测的金字塔层数，该层数相对于当前的帧
         const int &nPredictedLevel = pMP->mnTrackScaleLevel;
 
         // The size of the window will depend on the viewing direction
         // 搜索窗口的大小取决于视角, 当mTrackViewCos接近于90度时,r取一个较小的值
         float r = RadiusByViewingCos(pMP->mTrackViewCos);
-
+		
+        // 如果需要进行更粗糙的搜索，则增大范围
         if(bFactor)
             r*=th;
 
@@ -102,7 +109,8 @@ int ORBmatcher::SearchByProjection(Frame &F, const vector<MapPoint*> &vpMapPoint
             const cv::Mat &d = F.mDescriptors.row(idx);
 
             const int dist = DescriptorDistance(MPdescriptor,d);
-
+			
+            // 根据描述子寻找描述子距离最小和次小的特征点
             if(dist<bestDist)
             {
                 bestDist2=bestDist;
@@ -662,9 +670,14 @@ int ORBmatcher::SearchByBoW(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
     return nmatches;
 }
 
+// 利用基本矩阵F12,在两个关键帧之间未匹配的特征点中产生新的3d点
+// vMatchedPairs存储匹配特征点对，特征点用其在关键帧中的索引表示
 int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F12,
                                        vector<pair<size_t, size_t> > &vMatchedPairs, const bool bOnlyStereo)
 {    
+    // 获得关键帧中的所有二级节点的所有特征点索引
+    // 二级节点是词汇树中的二级节点
+    // key为二级节点，value为该节点在pKF1帧中的所有特征点的索引
     const DBoW2::FeatureVector &vFeatVec1 = pKF1->mFeatVec;
     const DBoW2::FeatureVector &vFeatVec2 = pKF2->mFeatVec;
 
@@ -696,17 +709,22 @@ int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F
     DBoW2::FeatureVector::const_iterator f1end = vFeatVec1.end();
     DBoW2::FeatureVector::const_iterator f2end = vFeatVec2.end();
 
+	// 遍历pKF1和pKF2中相等的二级节点
     while(f1it!=f1end && f2it!=f2end)
     {
         if(f1it->first == f2it->first)
         {
+			// f1it->second为pKF1中当前二级节点对应的特征点索引集合(vector)
             for(size_t i1=0, iend1=f1it->second.size(); i1<iend1; i1++)
             {
+				// 获取pKF1中当前二级节点对应的特征点索引集合中的某个特征点索引
                 const size_t idx1 = f1it->second[i1];
                 
+				// 获取当前特征点索引idx1在pKF1中对应的3d点
                 MapPoint* pMP1 = pKF1->GetMapPoint(idx1);
                 
                 // If there is already a MapPoint skip
+				// 由于寻找的是未匹配的特征点，所以pMP1应该为NULL
                 if(pMP1)
                     continue;
 
@@ -716,20 +734,27 @@ int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F
                     if(!bStereo1)
                         continue;
                 
+				// 获取当前特征点索引idx1在pKF1中对应的特征点
                 const cv::KeyPoint &kp1 = pKF1->mvKeysUn[idx1];
                 
+				// 获取当前特征点索引idx1在pKF1中对应特征点的描述子
                 const cv::Mat &d1 = pKF1->mDescriptors.row(idx1);
                 
                 int bestDist = TH_LOW;
                 int bestIdx2 = -1;
                 
+				// 遍历pKF2中相等二级节点的所有特征点的索引
                 for(size_t i2=0, iend2=f2it->second.size(); i2<iend2; i2++)
                 {
+					// 获取pKF2中相等二级节点的当前特征点的索引
                     size_t idx2 = f2it->second[i2];
                     
+					// 获得pKF2当前特征点索引idx2对应的3d点
                     MapPoint* pMP2 = pKF2->GetMapPoint(idx2);
                     
                     // If we have already matched or there is a MapPoint skip
+					// 如果pKF2当前特征点索引idx2已经被匹配过或者对应的3d点非空
+					// 那么这个索引idx2就不能被考虑
                     if(vbMatched2[idx2] || pMP2)
                         continue;
 
@@ -741,6 +766,7 @@ int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F
                     
                     const cv::Mat &d2 = pKF2->mDescriptors.row(idx2);
                     
+					// 计算idx1与idx2在两个关键帧中对应特征点的描述子距离
                     const int dist = DescriptorDistance(d1,d2);
                     
                     if(dist>TH_LOW || dist>bestDist)

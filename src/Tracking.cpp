@@ -530,8 +530,8 @@ void Tracking::StereoInitialization()
                 MapPoint* pNewMP = new MapPoint(x3D,pKFini,mpMap);
                 pNewMP->AddObservation(pKFini,i); // 相互关联
                 pKFini->AddMapPoint(pNewMP,i);    // 相互关联
-                pNewMP->ComputeDistinctiveDescriptors();  // NOTE 不太懂
-                pNewMP->UpdateNormalAndDepth();           // NOTE 不懂
+                pNewMP->ComputeDistinctiveDescriptors();
+                pNewMP->UpdateNormalAndDepth();
                 mpMap->AddMapPoint(pNewMP);
 
                 mCurrentFrame.mvpMapPoints[i]=pNewMP;
@@ -929,6 +929,7 @@ bool Tracking::TrackWithMotionModel()
     return nmatchesMap>=10;
 }
 
+// V-D track local map
 bool Tracking::TrackLocalMap()
 {
     // We have an estimation of the camera pose and some map points tracked in the frame.
@@ -947,6 +948,7 @@ bool Tracking::TrackLocalMap()
     {
         if(mCurrentFrame.mvpMapPoints[i])
         {
+        	// 更新能找到该点的帧数+1
             if(!mCurrentFrame.mvbOutlier[i])
             {
                 mCurrentFrame.mvpMapPoints[i]->IncreaseFound();
@@ -976,6 +978,7 @@ bool Tracking::TrackLocalMap()
 }
 
 
+// 判断当前帧是否为关键帧
 bool Tracking::NeedNewKeyFrame()
 {
     if(mbOnlyTracking)
@@ -992,6 +995,7 @@ bool Tracking::NeedNewKeyFrame()
         return false;
 
     // Tracked MapPoints in the reference keyframe
+	// 将track local map步骤中找到的匹配地图点最多的帧设置为参考关键帧
     int nMinObs = 3;
     if(nKFs<=2)
         nMinObs=2;
@@ -1157,10 +1161,12 @@ void Tracking::CreateNewKeyFrame()
     mpLastKeyFrame = pKF;
 }
 
+// 将局部地图中所有的关键点投影到当前帧，并对当前帧中的特征点进行匹配
+// 需要计算重投影坐标，观测方向夹角，预测在当前帧的尺度等等
 void Tracking::SearchLocalPoints()
 {
     // Do not search map points already matched
-    // NOTE 对于当前帧
+    // NOTE 遍历在当前帧中已经获知的MapPoints，这些点将不能进入接下来的匹配搜索环节，因为已经匹配过了
     for(vector<MapPoint*>::iterator vit=mCurrentFrame.mvpMapPoints.begin(), vend=mCurrentFrame.mvpMapPoints.end(); vit!=vend; vit++)
     {
         MapPoint* pMP = *vit;
@@ -1172,9 +1178,9 @@ void Tracking::SearchLocalPoints()
             }
             else
             {
-                pMP->IncreaseVisible();
-                pMP->mnLastFrameSeen = mCurrentFrame.mnId;
-                pMP->mbTrackInView = false;
+                pMP->IncreaseVisible();                    // 更新能观测到该点的帧数+1
+                pMP->mnLastFrameSeen = mCurrentFrame.mnId; // 标记该点被当前帧观测到
+                pMP->mbTrackInView = false;                // 标记该点将来不被投影，因为已经匹配过
             }
         }
     }
@@ -1182,17 +1188,22 @@ void Tracking::SearchLocalPoints()
     int nToMatch=0;
 
     // Project points in frame and check its visibility
-    // NOTE 对于LocalMapPoints
+    // NOTE 遍历LocalMapPoints
     for(vector<MapPoint*>::iterator vit=mvpLocalMapPoints.begin(), vend=mvpLocalMapPoints.end(); vit!=vend; vit++)
     {
         MapPoint* pMP = *vit;
+		
+        // 防止已经被标记的点被重复匹配
         if(pMP->mnLastFrameSeen == mCurrentFrame.mnId)
             continue;
         if(pMP->isBad())
             continue;
+        
         // Project (this fills MapPoint variables for matching)
+        // 判断该点是否能被当前帧观测到
         if(mCurrentFrame.isInFrustum(pMP,0.5))
         {
+        	// 能观测到该点的帧数+1
             pMP->IncreaseVisible();
             nToMatch++;
         }
@@ -1204,9 +1215,13 @@ void Tracking::SearchLocalPoints()
         int th = 1;
         if(mSensor==System::RGBD)
             th=3;
+
         // If the camera has been relocalised recently, perform a coarser search
+        // 如果不久前进行过重定位，那么进行一个更加粗糙的搜索，阈值需要增大
         if(mCurrentFrame.mnId<mnLastRelocFrameId+2)
             th=5;
+
+        //通过重投影进行特征点匹配
         matcher.SearchByProjection(mCurrentFrame,mvpLocalMapPoints,th);
     }
 }

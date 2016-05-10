@@ -575,8 +575,8 @@ void TemplatedVocabulary<TDescriptor,F>::create(
   m_words.clear();
   
   // expected_nodes = Sum_{i=0..L} ( k^i )
-	int expected_nodes = 
-		(int)((pow((double)m_k, (double)m_L + 1) - 1)/(m_k - 1));
+  int expected_nodes = 
+    (int)((pow((double)m_k, (double)m_L + 1) - 1)/(m_k - 1));
 
   m_nodes.reserve(expected_nodes); // avoid allocations when creating the tree
   
@@ -591,7 +591,7 @@ void TemplatedVocabulary<TDescriptor,F>::create(
   // create the tree
   HKmeansStep(0, features, 1);
 
-  // create the words
+  // create the words 即tree的叶子结点
   createWords();
 
   // and set the weight of each node of the tree
@@ -659,11 +659,11 @@ void TemplatedVocabulary<TDescriptor,F>::HKmeansStep(NodeId parent_id,
         
   // features associated to each cluster
   vector<TDescriptor> clusters;
-	vector<vector<unsigned int> > groups; // groups[i] = [j1, j2, ...]
-	// j1, j2, ... indices of descriptors associated to cluster i
+  vector<vector<unsigned int> > groups; // groups[i] = [j1, j2, ...]
+  // j1, j2, ... indices of descriptors associated to cluster i
 
   clusters.reserve(m_k);
-	groups.reserve(m_k);
+  groups.reserve(m_k);
   
   //const int msizes[] = { m_k, descriptors.size() };
   //cv::SparseMat assoc(2, msizes, CV_8U);
@@ -695,14 +695,14 @@ void TemplatedVocabulary<TDescriptor,F>::HKmeansStep(NodeId parent_id,
     {
       // 1. Calculate clusters
 
-			if(first_time)
-			{
+      if(first_time)
+      {
         // random sample 
         initiateClusters(descriptors, clusters);
       }
       else
       {
-        // calculate cluster centres
+        // calculate cluster centres 计算聚类中心
 
         for(unsigned int c = 0; c < clusters.size(); ++c)
         {
@@ -777,6 +777,7 @@ void TemplatedVocabulary<TDescriptor,F>::HKmeansStep(NodeId parent_id,
         goon = false;
         for(unsigned int i = 0; i < current_association.size(); i++)
         {
+          // 比较上一次和这一次聚类的结果，如果不同则再迭代
           if(current_association[i] != last_association[i]){
             goon = true;
             break;
@@ -784,14 +785,14 @@ void TemplatedVocabulary<TDescriptor,F>::HKmeansStep(NodeId parent_id,
         }
       }
 
-			if(goon)
-			{
-				// copy last feature-cluster association
-				last_association = current_association;
-				//last_assoc = assoc.clone();
-			}
-			
-		} // while(goon)
+      if(goon)
+      {
+        // copy last feature-cluster association
+        last_association = current_association;
+        //last_assoc = assoc.clone();
+      }
+      
+    } // while(goon)
     
   } // if must run kmeans
   
@@ -857,6 +858,14 @@ void TemplatedVocabulary<TDescriptor,F>::initiateClustersKMpp(
   // 5. Now that the initial centers have been chosen, proceed using standard k-means 
   //    clustering.
 
+  // 1. 从输入的数据点集合中随机选择一个点作为第一个聚类中心
+  // 2. 对于数据集中的每一个点x，计算它与最近聚类中心(指已选择的聚类中心)的距离D(x)并保存在一个数组里，
+  //    然后把这些距离加起来得到Sum(D(x))。
+  // 3. 选择一个新的数据点作为新的聚类中心，选择的原则是：D(x)较大的点，被选取作为聚类中心的概率较大
+  //    实际做法：取一个0～Sum(D(x))之间的随机值Random，计算Sum(D(0)，D(1)...D(j))>=Random，第j个点为种子点
+  // 4. 重复2和3直到k个聚类中心被选出来
+  // 5. 利用这k个初始的聚类中心来运行标准的k-means算法
+
   DUtils::Random::SeedRandOnce();
 
   clusters.resize(0);
@@ -888,7 +897,7 @@ void TemplatedVocabulary<TDescriptor,F>::initiateClustersKMpp(
       if(*dit > 0)
       {
         double dist = F::distance(*(*fit), clusters.back());
-        if(dist < *dit) *dit = dist;
+        if(dist < *dit) *dit = dist; // 仅保存最近的距离，即与最近聚类中心的距离
       }
     }
     
@@ -972,7 +981,7 @@ void TemplatedVocabulary<TDescriptor,F>::setNodeWeights
     // Note: this actually calculates the idf part of the tf-idf score.
     // The complete tf-idf score is calculated in ::transform
 
-    vector<unsigned int> Ni(NWords, 0);
+    vector<unsigned int> Ni(NWords, 0); // 统计词频，范围为0～training_features.size()
     vector<bool> counted(NWords, false);
     
     typename vector<vector<TDescriptor> >::const_iterator mit;
@@ -995,7 +1004,7 @@ void TemplatedVocabulary<TDescriptor,F>::setNodeWeights
       }
     }
 
-    // set ln(N/Ni)
+    // set ln(N/Ni) iDf是一个词语普遍重要性的度量, Ni越小，重要程度越高
     for(unsigned int i = 0; i < NWords; i++)
     {
       if(Ni[i] > 0)
@@ -1090,7 +1099,7 @@ void TemplatedVocabulary<TDescriptor,F>::transform(
   LNorm norm;
   bool must = m_scoring_object->mustNormalize(norm);
 
-	typename vector<TDescriptor>::const_iterator fit;
+  typename vector<TDescriptor>::const_iterator fit;
 
   if(m_weighting == TF || m_weighting == TF_IDF)
   {

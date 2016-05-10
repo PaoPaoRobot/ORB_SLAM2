@@ -285,7 +285,12 @@ MapPoint* KeyFrame::GetMapPoint(const size_t &idx)
     unique_lock<mutex> lock(mMutexFeatures);
     return mvpMapPoints[idx];
 }
-
+//对插入的关键帧，进行covisibility图的更新
+//首先获得该关键帧的所有3d点，统计观测到这些3d点的所有关键帧
+//对每一个找到的关键帧，建立一条边，边的权值是该关键帧与当前关键帧公共3d点的个数，
+//并且该权重必须大于一个阈值，如果没有超过该阈值的权重，那么就只保留权重最大的边
+//对这些连接按照权重从大到小进行排序，以方便将来的处理
+//更新完covisibility图之后，还需要更新生成树，连接权重最大的边，类似于最大生成树
 void KeyFrame::UpdateConnections()
 {
     map<KeyFrame*,int> KFcounter;
@@ -364,10 +369,11 @@ void KeyFrame::UpdateConnections()
         unique_lock<mutex> lockCon(mMutexConnections);
 
         // mspConnectedKeyFrames = spConnectedKeyFrames;
+        //更新图的连接
         mConnectedKeyFrameWeights = KFcounter;
         mvpOrderedConnectedKeyFrames = vector<KeyFrame*>(lKFs.begin(),lKFs.end());
         mvOrderedWeights = vector<int>(lWs.begin(), lWs.end());
-
+        //更新生成树的连接
         if(mbFirstConnection && mnId!=0)
         {
             mpParent = mvpOrderedConnectedKeyFrames.front();
@@ -630,6 +636,7 @@ cv::Mat KeyFrame::UnprojectStereo(int i)
         return cv::Mat();
 }
 
+//评估当前关键帧场景深度，q=2表示中值
 float KeyFrame::ComputeSceneMedianDepth(const int q)
 {
     vector<MapPoint*> vpMapPoints;

@@ -239,6 +239,10 @@ float MapPoint::GetFoundRatio()
     return static_cast<float>(mnFound)/mnVisible;
 }
 
+// 插入关键帧后，需要判断是否更新当前点的最适合的描述子
+// 先获得当前点的所有描述子，通过遍历所有观测到该点的关键帧得到
+// 然后计算描述子之间的两两距离，
+// 最好的描述子与其他描述子应该具有最小的距离中值
 void MapPoint::ComputeDistinctiveDescriptors()
 {
     // Retrieve all observed descriptors
@@ -257,7 +261,7 @@ void MapPoint::ComputeDistinctiveDescriptors()
         return;
 
     vDescriptors.reserve(observations.size());
-
+    // 遍历观测到3d点的所有关键帧，获得orb描述子，并插入到vDescriptors中
     for(map<KeyFrame*,size_t>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
     {
         KeyFrame* pKF = mit->first;
@@ -270,8 +274,9 @@ void MapPoint::ComputeDistinctiveDescriptors()
         return;
 
     // Compute distances between them
+    // 获得这些描述子两两之间的距离
     const size_t N = vDescriptors.size();
-
+	
     //float Distances[N][N];
 	std::vector<std::vector<float> > Distances;
 	Distances.resize(N, vector<float>(N, 0));
@@ -294,8 +299,11 @@ void MapPoint::ComputeDistinctiveDescriptors()
         //vector<int> vDists(Distances[i],Distances[i]+N);
 		vector<int> vDists(Distances[i].begin(), Distances[i].end());
 		sort(vDists.begin(), vDists.end());
-        int median = vDists[0.5*(N-1)];
 
+        // 获得中值
+        int median = vDists[0.5*(N-1)];
+        
+        // 寻找最小的中值
         if(median<BestMedian)
         {
             BestMedian = median;
@@ -305,6 +313,8 @@ void MapPoint::ComputeDistinctiveDescriptors()
 
     {
         unique_lock<mutex> lock(mMutexFeatures);
+        
+        // 最好的描述子，该描述子相对于其他描述子有最小的距离中值
         mDescriptor = vDescriptors[BestIdx].clone();       
     }
 }
@@ -330,6 +340,8 @@ bool MapPoint::IsInKeyFrame(KeyFrame *pKF)
     return (mObservations.count(pKF));
 }
 
+// 插入新的关键帧后
+// 计算当前3d点的平均观测方向以及观测距离范围
 void MapPoint::UpdateNormalAndDepth()
 {
     map<KeyFrame*,size_t> observations;
@@ -340,9 +352,10 @@ void MapPoint::UpdateNormalAndDepth()
         unique_lock<mutex> lock2(mMutexPos);
         if(mbBad)
             return;
-        observations=mObservations;
-        pRefKF=mpRefKF;
-        Pos = mWorldPos.clone();
+
+        observations=mObservations; // 获得观测到该3d点的所有关键帧
+        pRefKF=mpRefKF;             // 观测到该点的参考关键帧
+        Pos = mWorldPos.clone();    // 3d点在世界坐标系中的位置
     }
 
     if(observations.empty())
@@ -355,21 +368,21 @@ void MapPoint::UpdateNormalAndDepth()
         KeyFrame* pKF = mit->first;
         cv::Mat Owi = pKF->GetCameraCenter();
         cv::Mat normali = mWorldPos - Owi;
-        normal = normal + normali/cv::norm(normali);
+        normal = normal + normali/cv::norm(normali); // 对所有关键帧对该点的观测方向进行求和
         n++;
     } 
 
     cv::Mat PC = Pos - pRefKF->GetCameraCenter();
-    const float dist = cv::norm(PC);
+    const float dist = cv::norm(PC); // 该点到参考关键帧的距离
     const int level = pRefKF->mvKeysUn[observations[pRefKF]].octave;
     const float levelScaleFactor =  pRefKF->mvScaleFactors[level];
     const int nLevels = pRefKF->mnScaleLevels;
 
     {
         unique_lock<mutex> lock3(mMutexPos);
-        mfMaxDistance = dist*levelScaleFactor;
-        mfMinDistance = mfMaxDistance/pRefKF->mvScaleFactors[nLevels-1];
-        mNormalVector = normal/n;
+        mfMaxDistance = dist*levelScaleFactor;                           // 观测到该点的距离下限
+        mfMinDistance = mfMaxDistance/pRefKF->mvScaleFactors[nLevels-1]; // 观测到该点的距离上限
+        mNormalVector = normal/n;                                        // 获得平均的观测方向
     }
 }
 

@@ -53,6 +53,7 @@ enum ScoringType
 };
 
 /// Vector of words to represent images
+/// stl的map结构，key为wordId，value为tfidf中的tf
 class BowVector: 
 	public std::map<WordId, WordValue>
 {
