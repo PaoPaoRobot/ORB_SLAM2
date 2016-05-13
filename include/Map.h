@@ -65,8 +65,8 @@ public:
     std::mutex mMutexPointCreation;
 
 protected:
-    std::set<MapPoint*> mspMapPoints;
-    std::set<KeyFrame*> mspKeyFrames;
+    std::set<MapPoint*> mspMapPoints; ///< MapPoints
+    std::set<KeyFrame*> mspKeyFrames; ///< Keyframs
 
     std::vector<MapPoint*> mvpReferenceMapPoints;
 

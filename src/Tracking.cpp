@@ -264,6 +264,9 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
     return mCurrentFrame.mTcw.clone();
 }
 
+/**
+ * @brief Main tracking function. It is independent of the input sensor.
+ */
 void Tracking::Track()
 {
     if(mState==NO_IMAGES_YET)
@@ -506,7 +509,9 @@ void Tracking::Track()
 
 }
 
-
+/**
+ * @brief Map initialization for stereo and RGB-D
+ */
 void Tracking::StereoInitialization()
 {
     if(mCurrentFrame.N>500)
@@ -528,8 +533,8 @@ void Tracking::StereoInitialization()
             {
                 cv::Mat x3D = mCurrentFrame.UnprojectStereo(i);
                 MapPoint* pNewMP = new MapPoint(x3D,pKFini,mpMap);
-                pNewMP->AddObservation(pKFini,i); // 相互关联
-                pKFini->AddMapPoint(pNewMP,i);    // 相互关联
+                pNewMP->AddObservation(pKFini,i);
+                pKFini->AddMapPoint(pNewMP,i);
                 pNewMP->ComputeDistinctiveDescriptors();
                 pNewMP->UpdateNormalAndDepth();
                 mpMap->AddMapPoint(pNewMP);

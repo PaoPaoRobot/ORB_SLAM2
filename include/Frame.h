@@ -67,7 +67,6 @@ public:
     void ComputeBoW();
 
     // Set the camera pose.
-    // 随后会调用updatePoseMatrices来改变mRcw,mRwc等变量的值
     void SetPose(cv::Mat Tcw);
 
     // Computes rotation, translation and camera center matrices from the camera pose.
@@ -136,7 +135,7 @@ public:
     float mThDepth;
 
     // Number of KeyPoints.
-    int N;
+    int N; ///< KeyPoints数量
 
     // Vector of keypoints (original for visualization) and undistorted (actually used by the system).
     // In the stereo case, mvKeysUn is redundant as images must be rectified.
@@ -172,7 +171,7 @@ public:
     std::vector<std::size_t> mGrid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
     // Camera pose.
-    cv::Mat mTcw;
+    cv::Mat mTcw; ///< 相机姿态
 
     // Current and Next Frame id.
     static long unsigned int nNextId;
@@ -213,10 +212,10 @@ private:
     void AssignFeaturesToGrid();
 
     // Rotation, translation and camera center
-    cv::Mat mRcw;
-    cv::Mat mtcw;
-    cv::Mat mRwc;
-    cv::Mat mOw; //==mtwc
+    cv::Mat mRcw; ///< Rotation from world to camera
+    cv::Mat mtcw; ///< Translation from world to camera
+    cv::Mat mRwc; ///< Rotation from camera to world
+    cv::Mat mOw;  ///< mtwc,Translation from camera to world 即相机在世界坐标系的位置
 };
 
 }// namespace ORB_SLAM

@@ -29,6 +29,12 @@ namespace ORB_SLAM2
 long unsigned int MapPoint::nNextId=0;
 mutex MapPoint::mGlobalMutex;
 
+/**
+ * @brief 给定坐标与keyframe构造MapPoint
+ * @param Pos    MapPoint的坐标（wrt世界坐标系）
+ * @param pRefKF KeyFrame
+ * @param pMap   Map
+ */
 MapPoint::MapPoint(const cv::Mat &Pos, KeyFrame *pRefKF, Map* pMap):
     mnFirstKFid(pRefKF->mnId), mnFirstFrame(pRefKF->mnFrameId), nObs(0), mnTrackReferenceForFrame(0),
     mnLastFrameSeen(0), mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0), mnCorrectedByKF(0),
@@ -43,6 +49,13 @@ MapPoint::MapPoint(const cv::Mat &Pos, KeyFrame *pRefKF, Map* pMap):
     mnId=nNextId++;
 }
 
+/**
+ * @brief 给定坐标与frame构造MapPoint
+ * @param Pos    MapPoint的坐标（wrt世界坐标系）
+ * @param pMap   Map
+ * @param pFrame Frame
+ * @param idxF   MapPoint在Frame中的索引
+ */
 MapPoint::MapPoint(const cv::Mat &Pos, Map* pMap, Frame* pFrame, const int &idxF):
     mnFirstKFid(-1), mnFirstFrame(pFrame->mnId), nObs(0), mnTrackReferenceForFrame(0), mnLastFrameSeen(0),
     mnBALocalForKF(0), mnFuseCandidateForKF(0),mnLoopPointForKF(0), mnCorrectedByKF(0),
@@ -95,6 +108,14 @@ KeyFrame* MapPoint::GetReferenceKeyFrame()
      return mpRefKF;
 }
 
+/**
+ * @brief 添加观测
+ *
+ * 记录下能观测到该MapPoint的KeyFrame 和 该MapPoint在KeyFrame中的索引 \n
+ * 并增加观测的相机数目nObs，单目+1，双目或者grbd+2
+ * @param pKF KeyFrame
+ * @param idx MapPoint在KeyFrame中的索引
+ */
 void MapPoint::AddObservation(KeyFrame* pKF, size_t idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);
@@ -239,10 +260,13 @@ float MapPoint::GetFoundRatio()
     return static_cast<float>(mnFound)/mnVisible;
 }
 
-// 插入关键帧后，需要判断是否更新当前点的最适合的描述子
-// 先获得当前点的所有描述子，通过遍历所有观测到该点的关键帧得到
-// 然后计算描述子之间的两两距离，
-// 最好的描述子与其他描述子应该具有最小的距离中值
+/**
+ * @biref 计算具有代表的描述子
+ *
+ * 由于1个MapPoint会被许多相机观测到，因此在插入关键帧后，需要判断是否更新当前点的最适合的描述子 \n
+ * 先获得当前点的所有描述子，然后计算描述子之间的两两距离，最好的描述子与其他描述子应该具有最小的距离中值
+ * @note why?
+ */
 void MapPoint::ComputeDistinctiveDescriptors()
 {
     // Retrieve all observed descriptors
@@ -261,6 +285,7 @@ void MapPoint::ComputeDistinctiveDescriptors()
         return;
 
     vDescriptors.reserve(observations.size());
+
     // 遍历观测到3d点的所有关键帧，获得orb描述子，并插入到vDescriptors中
     for(map<KeyFrame*,size_t>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
     {

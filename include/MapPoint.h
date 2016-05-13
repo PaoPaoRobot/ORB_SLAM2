@@ -35,15 +35,14 @@ class KeyFrame;
 class Map;
 class Frame;
 
-/* MapPoint 是一个地图点
+/**
+ * @brief MapPoint是一个地图点
  */
-
 class MapPoint
 {
 public:
-    // 给定世界坐标与keyframe的构造
+
     MapPoint(const cv::Mat &Pos, KeyFrame* pRefKF, Map* pMap);
-    // 从frame来构造map point
     MapPoint(const cv::Mat &Pos,  Map* pMap, Frame* pFrame, const int &idxF);
 
     // 由于map point为各个线程共享，需要一些set和get函数
@@ -119,7 +118,7 @@ public:
 protected:    
 
      // Position in absolute coordinates
-     cv::Mat mWorldPos;
+     cv::Mat mWorldPos; ///< MapPoint在世界坐标系下的坐标
 
      // Keyframes observing the point and associated index in keyframe
      std::map<KeyFrame*,size_t> mObservations;
@@ -128,7 +127,7 @@ protected:
      cv::Mat mNormalVector;
 
      // Best descriptor to fast matching
-     cv::Mat mDescriptor;
+     cv::Mat mDescriptor; ///< 通过 ComputeDistinctiveDescriptors() 得到的最优描述子
 
      // Reference KeyFrame
      KeyFrame* mpRefKF;

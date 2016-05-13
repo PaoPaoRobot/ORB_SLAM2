@@ -260,12 +260,23 @@ void Frame::ExtractORB(int flag, const cv::Mat &im)
         (*mpORBextractorRight)(im,cv::Mat(),mvKeysRight,mDescriptorsRight);
 }
 
+/**
+ * @brief Set the camera pose.
+ * 
+ * 设置相机姿态，随后会调用 UpdatePoseMatrices() 来改变mRcw,mRwc等变量的值
+ * @param Tcw Transformation from world to camera
+ */
 void Frame::SetPose(cv::Mat Tcw)
 {
     mTcw = Tcw.clone();
     UpdatePoseMatrices();
 }
 
+/**
+ * @brief Computes rotation, translation and camera center matrices from the camera pose.
+ *
+ * 根据Tcw计算mRcw、mtcw和mRwc、mOw
+ */
 void Frame::UpdatePoseMatrices()
 { 
     mRcw = mTcw.rowRange(0,3).colRange(0,3);
@@ -696,6 +707,11 @@ void Frame::ComputeStereoFromRGBD(const cv::Mat &imDepth)
     }
 }
 
+/**
+ * @brief Backprojects a keypoint (if stereo/depth info available) into 3D world coordinates.
+ * @param  i 第i个keypoint
+ * @return   3D点（相对于世界坐标系）
+ */
 cv::Mat Frame::UnprojectStereo(const int &i)
 {
     const float z = mvDepth[i];

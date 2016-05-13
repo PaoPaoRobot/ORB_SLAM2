@@ -207,6 +207,11 @@ int KeyFrame::GetWeight(KeyFrame *pKF)
         return 0;
 }
 
+/**
+ * @brief Add MapPoint to KeyFrame
+ * @param pMP MapPoint
+ * @param idx MapPoint在KeyFrame中的索引
+ */
 void KeyFrame::AddMapPoint(MapPoint *pMP, const size_t &idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);
@@ -618,6 +623,11 @@ bool KeyFrame::IsInImage(const float &x, const float &y) const
     return (x>=mnMinX && x<mnMaxX && y>=mnMinY && y<mnMaxY);
 }
 
+/**
+ * @brief Backprojects a keypoint (if stereo/depth info available) into 3D world coordinates.
+ * @param  i 第i个keypoint
+ * @return   3D点（相对于世界坐标系）
+ */
 cv::Mat KeyFrame::UnprojectStereo(int i)
 {
     const float z = mvDepth[i];

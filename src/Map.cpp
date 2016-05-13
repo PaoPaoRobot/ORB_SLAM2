@@ -29,6 +29,10 @@ Map::Map():mnMaxKFid(0)
 {
 }
 
+/**
+ * @brief Insert KeyFrame in the map
+ * @param pKF KeyFrame
+ */
 void Map::AddKeyFrame(KeyFrame *pKF)
 {
     unique_lock<mutex> lock(mMutexMap);
@@ -37,12 +41,20 @@ void Map::AddKeyFrame(KeyFrame *pKF)
         mnMaxKFid=pKF->mnId;
 }
 
+/**
+ * @brief Insert MapPoint in the map
+ * @param pMP MapPoint
+ */
 void Map::AddMapPoint(MapPoint *pMP)
 {
     unique_lock<mutex> lock(mMutexMap);
     mspMapPoints.insert(pMP);
 }
 
+/**
+ * @brief Erase MapPoint from the map
+ * @param pMP MapPoint
+ */
 void Map::EraseMapPoint(MapPoint *pMP)
 {
     unique_lock<mutex> lock(mMutexMap);
@@ -52,6 +64,10 @@ void Map::EraseMapPoint(MapPoint *pMP)
     // Delete the MapPoint
 }
 
+/**
+ * @brief Erase KeyFrame from the map
+ * @param pKF KeyFrame
+ */
 void Map::EraseKeyFrame(KeyFrame *pKF)
 {
     unique_lock<mutex> lock(mMutexMap);
