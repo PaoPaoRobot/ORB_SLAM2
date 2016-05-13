@@ -2,4 +2,9 @@ CMakeCache.txt
 CMakeFiles
 Makefile
 cmake_install.cmake
+CMakeLists.txt.user
 install_manifest.txt
+/doc/html
+/doc/latex
+index.html
+*build*
