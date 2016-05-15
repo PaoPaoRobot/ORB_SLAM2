@@ -77,6 +77,10 @@ void Map::EraseKeyFrame(KeyFrame *pKF)
     // Delete the MapPoint
 }
 
+/**
+ * @brief 设置参考MapPoints
+ * @param vpMPs Local MapPoints
+ */
 void Map::SetReferenceMapPoints(const vector<MapPoint *> &vpMPs)
 {
     unique_lock<mutex> lock(mMutexMap);

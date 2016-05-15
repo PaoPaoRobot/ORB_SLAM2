@@ -174,9 +174,12 @@ bool ORBmatcher::CheckDistEpipolarLine(const cv::KeyPoint &kp1,const cv::KeyPoin
 }
 
 /**
- * @brief 对关键帧和当前帧的特征点进行匹配
+ * @brief 通过词包，对关键帧的特征点进行跟踪
  * 
- * 对特定层，属于同一node的特征点根据描述子距离进
+ * KeyFrame中包含了MapPoints，对这些MapPoints进行tracking \n
+ * 由于每一个MapPoint对应有描述子，因此可以通过描述子距离进行跟踪 \n
+ * 为了加速匹配过程，将关键帧和当前帧的描述子划分到特定层的nodes中 \n
+ * 对属于同一node的描述子计算距离进行匹配 \n
  * 通过距离阈值、比例阈值和角度投票进行剔除误匹配
  * @param  pKF               KeyFrame
  * @param  F                 Current Frame
@@ -223,7 +226,9 @@ int ORBmatcher::SearchByBoW(KeyFrame* pKF,Frame &F, vector<MapPoint*> &vpMapPoin
                     continue;
 
                 if(pMP->isBad())
-                    continue;                
+                    continue;
+
+                // 对关键帧有效的MapPoints进行跟踪
 
                 const cv::Mat &dKF= pKF->mDescriptors.row(realIdxKF); // 找到对应的描述子
 
@@ -1378,9 +1383,19 @@ int ORBmatcher::SearchBySim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint*> &
     return nFound;
 }
 
-// 将LastFrame的MapPoint投影到CurrentFrame
-// 在投影点附近根据描述子距离以及最终的方向投票机制
-// 为CurrentFrame创建MapPoint
+/**
+ * @brief 通过投影，对上一帧的特征点进行跟踪
+ *
+ * 上一帧中包含了MapPoints，对这些MapPoints进行tracking，由此增加当前帧中MapPoint \n
+ * 1. 将上一帧的MapPoint投影到当前帧(根据速度模型可以估计当前帧的Tcw)
+ * 2. 在投影点附近根据描述子距离选取匹配，以及最终的方向投票机制进行剔除
+ * @param  CurrentFrame 当前帧
+ * @param  LastFrame    上一帧
+ * @param  th           阈值
+ * @param  bMono        是否为单目
+ * @return              成功匹配的数量
+ * @see SearchByBoW()
+ */
 int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, const float th, const bool bMono)
 {
     int nmatches = 0;
@@ -1394,16 +1409,17 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, 
     const cv::Mat Rcw = CurrentFrame.mTcw.rowRange(0,3).colRange(0,3);
     const cv::Mat tcw = CurrentFrame.mTcw.rowRange(0,3).col(3);
 
-    const cv::Mat twc = -Rcw.t()*tcw;
+    const cv::Mat twc = -Rcw.t()*tcw; // twc(w)
 
     const cv::Mat Rlw = LastFrame.mTcw.rowRange(0,3).colRange(0,3);
-    const cv::Mat tlw = LastFrame.mTcw.rowRange(0,3).col(3);
+    const cv::Mat tlw = LastFrame.mTcw.rowRange(0,3).col(3); // tlw(l)
 
-    const cv::Mat tlc = Rlw*twc+tlw;
+    // vector from LastFrame to CurrentFrame expressed in LastFrame
+    const cv::Mat tlc = Rlw*twc+tlw; // Rlw*twc(w) = twc(l), twc(l) + tlw(l) = tlc(l)
 
     // 判断前进还是后退
-    const bool bForward = tlc.at<float>(2)>CurrentFrame.mb && !bMono;
-    const bool bBackward = -tlc.at<float>(2)>CurrentFrame.mb && !bMono;
+    const bool bForward = tlc.at<float>(2)>CurrentFrame.mb && !bMono; // 非单目情况，如果Z大于基线，则表示前进
+    const bool bBackward = -tlc.at<float>(2)>CurrentFrame.mb && !bMono; // 非单目情况，如果Z小于基线，则表示前进
 
     for(int i=0; i<LastFrame.N; i++)
     {
@@ -1413,6 +1429,7 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, 
         {
             if(!LastFrame.mvbOutlier[i])
             {
+                // 对上一帧有效的MapPoints进行跟踪
                 // Project
                 cv::Mat x3Dw = pMP->GetWorldPos();
                 cv::Mat x3Dc = Rcw*x3Dw+tcw;
@@ -1435,11 +1452,14 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, 
                 int nLastOctave = LastFrame.mvKeys[i].octave;
 
                 // Search in a window. Size depends on scale
-                float radius = th*CurrentFrame.mvScaleFactors[nLastOctave];
+                float radius = th*CurrentFrame.mvScaleFactors[nLastOctave]; // 尺度越大，搜索范围越大
 
                 vector<size_t> vIndices2;
 
                 // NOTE 尺度越大,图像越小
+                // 以下可以这么理解，例如一个有一定面积的圆点，在某个尺度n下它是一个特征点
+                // 当前进时，圆点的面积增大，在某个尺度m下它是一个特征点，由于面积增大，则需要在更高的尺度下才能检测出来
+                // 因此m>=n，对应前进的情况，nCurOctave>=nLastOctave。后退的情况可以类推
                 if(bForward) // 前进,则上一帧兴趣点在所在的尺度nLastOctave<=nCurOctave
                     vIndices2 = CurrentFrame.GetFeaturesInArea(u,v, radius, nLastOctave);
                 else if(bBackward) // 后退,则上一帧兴趣点在所在的尺度0<=nCurOctave<=nLastOctave
@@ -1455,8 +1475,10 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, 
                 int bestDist = 256;
                 int bestIdx2 = -1;
 
+                // 遍历满足条件的特征点
                 for(vector<size_t>::const_iterator vit=vIndices2.begin(), vend=vIndices2.end(); vit!=vend; vit++)
                 {
+                    // 如果该特征点已经有对应的MapPoint了,则退出该次循环
                     const size_t i2 = *vit;
                     if(CurrentFrame.mvpMapPoints[i2])
                         if(CurrentFrame.mvpMapPoints[i2]->Observations()>0)

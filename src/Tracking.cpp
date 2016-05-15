@@ -398,6 +398,7 @@ void Tracking::Track()
         mCurrentFrame.mpReferenceKF = mpReferenceKF;
 
         // If we have an initial estimation of the camera pose and matching. Track the local map.
+        // V - D 在帧间匹配得到初始的姿态后，现在对local map进行跟踪
         if(!mbOnlyTracking)
         {
             if(bOK)
@@ -759,6 +760,14 @@ void Tracking::CheckReplacedInLastFrame()
     }
 }
 
+/**
+ * @brief 跟踪参考关键帧
+ * 
+ * 1. 对参考关键帧的MapPoints进行跟踪
+ * 2. 根据匹配对估计当前帧的姿态
+ * 3. 根据姿态剔除误匹配
+ * @return 如果匹配数大于10，返回true
+ */
 bool Tracking::TrackReferenceKeyFrame()
 {
     // Compute Bag of Words vector
@@ -769,13 +778,14 @@ bool Tracking::TrackReferenceKeyFrame()
     ORBmatcher matcher(0.7,true);
     vector<MapPoint*> vpMapPointMatches;
 
+    // 对关键帧的MapPoints进行跟踪
     int nmatches = matcher.SearchByBoW(mpReferenceKF,mCurrentFrame,vpMapPointMatches);
 
     if(nmatches<15)
         return false;
 
     mCurrentFrame.mvpMapPoints = vpMapPointMatches;
-    mCurrentFrame.SetPose(mLastFrame.mTcw);
+    mCurrentFrame.SetPose(mLastFrame.mTcw); // 设置初值，在PoseOptimization可以收敛快一些
 
     Optimizer::PoseOptimization(&mCurrentFrame);
 
@@ -869,6 +879,14 @@ void Tracking::UpdateLastFrame()
     }
 }
 
+/**
+ * @brief 利用匀速度模型进行跟踪
+ * 
+ * 1. 根据匀速度模型对上一帧的MapPoints进行跟踪
+ * 2. 根据匹配对估计当前帧的姿态
+ * 3. 根据姿态剔除误匹配
+ * @return 如果匹配数大于10，返回true
+ */
 bool Tracking::TrackWithMotionModel()
 {
     ORBmatcher matcher(0.9,true);
@@ -888,13 +906,16 @@ bool Tracking::TrackWithMotionModel()
         th=15;
     else
         th=7;
+
+    // 根据匀速度模型进行对上一帧的MapPoints进行跟踪
     int nmatches = matcher.SearchByProjection(mCurrentFrame,mLastFrame,th,mSensor==System::MONOCULAR);
 
     // If few matches, uses a wider window search
+    // 如果跟踪的点少，则扩大搜索半径再来一次
     if(nmatches<20)
     {
         fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));
-        nmatches = matcher.SearchByProjection(mCurrentFrame,mLastFrame,2*th,mSensor==System::MONOCULAR);
+        nmatches = matcher.SearchByProjection(mCurrentFrame,mLastFrame,2*th,mSensor==System::MONOCULAR); // 2*th
     }
 
     if(nmatches<20)
@@ -1230,6 +1251,9 @@ void Tracking::SearchLocalPoints()
     }
 }
 
+/**
+ * 更新LocalMap
+ */
 void Tracking::UpdateLocalMap()
 {
     // This is for visualization
