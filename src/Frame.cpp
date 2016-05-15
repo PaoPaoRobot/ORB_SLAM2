@@ -420,7 +420,11 @@ bool Frame::PosInGrid(const cv::KeyPoint &kp, int &posX, int &posY)
     return true;
 }
 
-
+/**
+ * @brief Bag of Words Representation
+ *
+ * 计算词包mBowVec和mFeatVec，其中mFeatVec记录了属于第i个node（在第4层）的ni个描述子
+ */
 void Frame::ComputeBoW()
 {
     if(mBowVec.empty())

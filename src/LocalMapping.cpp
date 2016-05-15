@@ -139,8 +139,13 @@ void LocalMapping::Run()
     SetFinish();
 }
 
-// 将关键帧插入到地图中，以便将来进行局部地图优化
-// 这里仅仅是将关键帧插入到列表中进行等待
+/**
+ * @brief 插入关键帧
+ *
+ * 将关键帧插入到地图中，以便将来进行局部地图优化
+ * 这里仅仅是将关键帧插入到列表中进行等待
+ * @param pKF KeyFrame
+ */
 void LocalMapping::InsertKeyFrame(KeyFrame *pKF)
 {
     unique_lock<mutex> lock(mMutexNewKFs);
@@ -149,13 +154,19 @@ void LocalMapping::InsertKeyFrame(KeyFrame *pKF)
     mbAbortBA=true;
 }
 
-// 查看列表中是否有等待被插入的关键帧
+/**
+ * @brief 查看列表中是否有等待被插入的关键帧
+ * @return 如果存在，返回true
+ */
 bool LocalMapping::CheckNewKeyFrames()
 {
     unique_lock<mutex> lock(mMutexNewKFs);
     return(!mlNewKeyFrames.empty());
 }
 
+/**
+ * @brief 处理列表中的关键帧
+ */
 void LocalMapping::ProcessNewKeyFrame()
 {
     {

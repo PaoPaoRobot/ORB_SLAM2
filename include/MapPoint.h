@@ -41,11 +41,9 @@ class Frame;
 class MapPoint
 {
 public:
-
     MapPoint(const cv::Mat &Pos, KeyFrame* pRefKF, Map* pMap);
     MapPoint(const cv::Mat &Pos,  Map* pMap, Frame* pFrame, const int &idxF);
 
-    // 由于map point为各个线程共享，需要一些set和get函数
     void SetWorldPos(const cv::Mat &Pos);
     cv::Mat GetWorldPos();
 

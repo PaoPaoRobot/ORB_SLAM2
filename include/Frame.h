@@ -174,8 +174,8 @@ public:
     cv::Mat mTcw; ///< 相机姿态
 
     // Current and Next Frame id.
-    static long unsigned int nNextId;
-    long unsigned int mnId;
+    static long unsigned int nNextId; ///< Next Frame id.
+    long unsigned int mnId; ///< Current Frame id.
 
     // Reference Keyframe.
     KeyFrame* mpReferenceKF;

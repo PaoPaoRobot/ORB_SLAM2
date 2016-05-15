@@ -121,8 +121,10 @@ void EdgeSE3ProjectXYZ::linearizeOplus() {
   tmp(1,1) = fy;
   tmp(1,2) = -y/z*fy;
 
+  // 2*3
   _jacobianOplusXi =  -1./z * tmp * T.rotation().toRotationMatrix();
 
+  // 2*6 the same as EdgeSE3ProjectXYZOnlyPose::linearizeOplus()
   _jacobianOplusXj(0,0) =  x*y/z_2 *fx;
   _jacobianOplusXj(0,1) = -(1+(x*x/z_2)) *fx;
   _jacobianOplusXj(0,2) = y/z *fx;
@@ -272,6 +274,7 @@ void EdgeSE3ProjectXYZOnlyPose::linearizeOplus() {
   double invz = 1.0/xyz_trans[2];
   double invz_2 = invz*invz;
 
+  // 2*6
   _jacobianOplusXi(0,0) =  x*y*invz_2 *fx;
   _jacobianOplusXi(0,1) = -(1+(x*x*invz_2)) *fx;
   _jacobianOplusXi(0,2) = y*invz *fx;
@@ -341,6 +344,7 @@ void EdgeStereoSE3ProjectXYZOnlyPose::linearizeOplus() {
   double invz = 1.0/xyz_trans[2];
   double invz_2 = invz*invz;
 
+  // 3*6
   _jacobianOplusXi(0,0) =  x*y*invz_2 *fx;
   _jacobianOplusXi(0,1) = -(1+(x*x*invz_2)) *fx;
   _jacobianOplusXi(0,2) = y*invz *fx;

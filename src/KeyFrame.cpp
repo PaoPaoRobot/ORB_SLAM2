@@ -56,6 +56,11 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
     SetPose(F.mTcw);    
 }
 
+/**
+ * @brief Bag of Words Representation
+ *
+ * 计算mBowVec，并且将描述子分散在第4层上，即mFeatVec记录了属于第i个node的ni个描述子
+ */
 void KeyFrame::ComputeBoW()
 {
     if(mBowVec.empty() || mFeatVec.empty())
@@ -279,6 +284,11 @@ int KeyFrame::TrackedMapPoints(const int &minObs)
     return nPoints;
 }
 
+/**
+ * @brief Get MapPoint Matches
+ *
+ * 获取该关键帧的MapPoints
+ */
 vector<MapPoint*> KeyFrame::GetMapPointMatches()
 {
     unique_lock<mutex> lock(mMutexFeatures);
@@ -290,6 +300,7 @@ MapPoint* KeyFrame::GetMapPoint(const size_t &idx)
     unique_lock<mutex> lock(mMutexFeatures);
     return mvpMapPoints[idx];
 }
+
 //对插入的关键帧，进行covisibility图的更新
 //首先获得该关键帧的所有3d点，统计观测到这些3d点的所有关键帧
 //对每一个找到的关键帧，建立一条边，边的权值是该关键帧与当前关键帧公共3d点的个数，

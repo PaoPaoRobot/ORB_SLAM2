@@ -174,8 +174,8 @@ public:
     const cv::Mat mDescriptors;
 
     //BoW
-    DBoW2::BowVector mBowVec;
-    DBoW2::FeatureVector mFeatVec;
+    DBoW2::BowVector mBowVec; ///< Vector of words to represent images
+    DBoW2::FeatureVector mFeatVec; ///< Vector of nodes with indexes of local features
 
     // Pose relative to parent (this is computed when bad flag is activated)
     cv::Mat mTcp;

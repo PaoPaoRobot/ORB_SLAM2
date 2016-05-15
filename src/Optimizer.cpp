@@ -238,6 +238,15 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
 
 }
 
+/**
+ * 3D-2D 最小化重投影误差 e = (u,v) - project(Tcw*Pw) \n
+ * 只优化Frame的Tcw，不优化MapPoints的坐标 \n
+ * - 顶点: Tcw \n
+ * - 边: MapPoints在当前帧中的二维位置(u,v)或(ul,v,ur) \n
+ * - 信息矩阵: invSigma2(与特征点所在的尺度有关) \n
+ * @param  pFrame Frame
+ * @return        inliers数量
+ */
 int Optimizer::PoseOptimization(Frame *pFrame)
 {
     g2o::SparseOptimizer optimizer;
@@ -380,7 +389,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
     {
 
         vSE3->setEstimate(Converter::toSE3Quat(pFrame->mTcw));
-        optimizer.initializeOptimization(0);
+        optimizer.initialzizeOptimization(0);
         optimizer.optimize(its[it]);
 
         nBad=0;
