@@ -45,10 +45,36 @@ public:
 
     // Search matches between Frame keypoints and projected MapPoints. Returns number of matches
     // Used to track the local map (Tracking)
+    /**
+     * @brief 通过投影，对Local MapPoint进行跟踪
+     *
+     * 将Local MapPoint投影到当前帧中, 由此增加当前帧的MapPoints \n
+     * 在SearchLocalPoints()中已经将Local MapPoints重投影（isInFrustum()）到当前帧 \n
+     * 并标记了这些点是否在当前帧的视野中，即mbTrackInView \n
+     * 对这些MapPoints，在其投影点附近根据描述子距离选取匹配，以及最终的方向投票机制进行剔除
+     * @param  F           当前帧
+     * @param  vpMapPoints Local MapPoints
+     * @param  th          阈值
+     * @return             成功匹配的数量
+     * @see SearchLocalPoints() isInFrustum()
+     */
     int SearchByProjection(Frame &F, const std::vector<MapPoint*> &vpMapPoints, const float th=3);
 
     // Project MapPoints tracked in last frame into the current frame and search matches.
     // Used to track from previous frame (Tracking)
+    /**
+     * @brief 通过投影，对上一帧的特征点进行跟踪
+     *
+     * 上一帧中包含了MapPoints，对这些MapPoints进行tracking，由此增加当前帧的MapPoints \n
+     * 1. 将上一帧的MapPoints投影到当前帧(根据速度模型可以估计当前帧的Tcw)
+     * 2. 在投影点附近根据描述子距离选取匹配，以及最终的方向投票机制进行剔除
+     * @param  CurrentFrame 当前帧
+     * @param  LastFrame    上一帧
+     * @param  th           阈值
+     * @param  bMono        是否为单目
+     * @return              成功匹配的数量
+     * @see SearchByBoW()
+     */
     int SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, const float th, const bool bMono);
 
     // Project MapPoints seen in KeyFrame into the Frame and search matches.

@@ -287,6 +287,8 @@ void Frame::UpdatePoseMatrices()
 
 /**
  * @brief 判断一个点是否在视野内
+ *
+ * 计算了重投影坐标，观测方向夹角，预测在当前帧的尺度
  * @param  pMP             MapPoint
  * @param  viewingCosLimit 视角和平均视角的方向阈值
  * @return                 true if is in view

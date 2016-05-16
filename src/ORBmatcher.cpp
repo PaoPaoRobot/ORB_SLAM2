@@ -47,26 +47,18 @@ ORBmatcher::ORBmatcher(float nnratio, bool checkOri): mfNNratio(nnratio), mbChec
 {
 }
 
-// 
-// 通过重投影的办法获得一些地图中的点与当前帧特征点的匹配
-// 像素搜索范围和尺度范围之前已经计算出来
-// 只有被标记的点才会进行匹配搜索
-// 
-/**
- * 
- *
- * 上一帧中包含了MapPoints，对这些MapPoints进行tracking，由此增加当前帧中MapPoints \n
- * 1. 将上一帧的MapPoints投影到当前帧(根据速度模型可以估计当前帧的Tcw)
- * 2. 在投影点附近根据描述子距离选取匹配，以及最终的方向投票机制进行剔除
-
 /**
  * @brief 通过投影，对Local MapPoint进行跟踪
  *
- * 将Local MapPoint投影到当前帧中, 由此增加当前帧中中MapPoints
+ * 将Local MapPoint投影到当前帧中, 由此增加当前帧的MapPoints \n
+ * 在SearchLocalPoints()中已经将Local MapPoints重投影（isInFrustum()）到当前帧 \n
+ * 并标记了这些点是否在当前帧的视野中，即mbTrackInView \n
+ * 对这些MapPoints，在其投影点附近根据描述子距离选取匹配，以及最终的方向投票机制进行剔除
  * @param  F           当前帧
  * @param  vpMapPoints Local MapPoints
  * @param  th          阈值
  * @return             成功匹配的数量
+ * @see SearchLocalPoints() isInFrustum()
  */
 int ORBmatcher::SearchByProjection(Frame &F, const vector<MapPoint*> &vpMapPoints, const float th)
 {
@@ -116,7 +108,7 @@ int ORBmatcher::SearchByProjection(Frame &F, const vector<MapPoint*> &vpMapPoint
         {
             const size_t idx = *vit;
 
-            // 如果Frame中的该兴趣点已经有对应的MapPoint了,则退出
+            // 如果Frame中的该兴趣点已经有对应的MapPoint了,则退出该次循环
             if(F.mvpMapPoints[idx])
                 if(F.mvpMapPoints[idx]->Observations()>0)
                     continue;
@@ -1403,7 +1395,7 @@ int ORBmatcher::SearchBySim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint*> &
 /**
  * @brief 通过投影，对上一帧的特征点进行跟踪
  *
- * 上一帧中包含了MapPoints，对这些MapPoints进行tracking，由此增加当前帧中MapPoints \n
+ * 上一帧中包含了MapPoints，对这些MapPoints进行tracking，由此增加当前帧的MapPoints \n
  * 1. 将上一帧的MapPoints投影到当前帧(根据速度模型可以估计当前帧的Tcw)
  * 2. 在投影点附近根据描述子距离选取匹配，以及最终的方向投票机制进行剔除
  * @param  CurrentFrame 当前帧

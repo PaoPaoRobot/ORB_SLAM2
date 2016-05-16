@@ -266,6 +266,8 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
 
 /**
  * @brief Main tracking function. It is independent of the input sensor.
+ *
+ * Tracking 线程
  */
 void Tracking::Track()
 {
@@ -305,7 +307,7 @@ void Tracking::Track()
             if(mState==OK)
             {
                 // Local Mapping might have changed some MapPoints tracked in last frame
-                CheckReplacedInLastFrame(); // NOTE ??
+                CheckReplacedInLastFrame();
 
                 if(mVelocity.empty() || mCurrentFrame.mnId<mnLastRelocFrameId+2)
                 {
@@ -511,7 +513,9 @@ void Tracking::Track()
 }
 
 /**
- * @brief Map initialization for stereo and RGB-D
+ * @brief 双目和rgbd的地图初始化
+ *
+ * 由于具有深度信息，直接生成MapPoints
  */
 void Tracking::StereoInitialization()
 {
@@ -567,6 +571,11 @@ void Tracking::StereoInitialization()
     }
 }
 
+/**
+ * @brief 单目的地图初始化
+ *
+ * 未注释
+ */
 void Tracking::MonocularInitialization()
 {
 
@@ -641,6 +650,11 @@ void Tracking::MonocularInitialization()
     }
 }
 
+/**
+ * @brief CreateInitialMapMonocular
+ *
+ * 未注释
+ */
 void Tracking::CreateInitialMapMonocular()
 {
     // Create KeyFrames
@@ -743,6 +757,11 @@ void Tracking::CreateInitialMapMonocular()
     mState=OK;
 }
 
+/**
+ * @brief 替换上一帧中的某些MapPoints
+ * 
+ * Local Mapping 线程可能会修改上一帧的某些MapPoints
+ */
 void Tracking::CheckReplacedInLastFrame()
 {
     for(int i =0; i<mLastFrame.N; i++)
@@ -765,8 +784,8 @@ void Tracking::CheckReplacedInLastFrame()
  * 
  * 1. 计算当前帧的词包，将当前帧的特征点分到特定层的nodes上
  * 2. 对属于同一node的描述子进行匹配
- * 2. 根据匹配对估计当前帧的姿态
- * 3. 根据姿态剔除误匹配
+ * 3. 根据匹配对估计当前帧的姿态
+ * 4. 根据姿态剔除误匹配
  * @return 如果匹配数大于10，返回true
  */
 bool Tracking::TrackReferenceKeyFrame()
@@ -893,11 +912,10 @@ void Tracking::UpdateLastFrame()
 /**
  * @brief 根据匀速度模型对上一帧的MapPoints进行跟踪
  * 
- * 1. 根据匀速度模型估计当前帧的姿态
- * 2. 非单目情况，需要对上一帧产生一些新的MapPoints（临时）
- * 3. 将上一帧的MapPoints投影到当前帧的图像平面上，在投影的位置进行区域匹配
- * 4. 根据匹配对估计当前帧的姿态
- * 5. 根据姿态剔除误匹配
+ * 1. 非单目情况，需要对上一帧产生一些新的MapPoints（临时）
+ * 2. 将上一帧的MapPoints投影到当前帧的图像平面上，在投影的位置进行区域匹配
+ * 3. 根据匹配对估计当前帧的姿态
+ * 4. 根据姿态剔除误匹配
  * @return 如果匹配数大于10，返回true
  * @see V-B Initial Pose Estimation From Previous Frame
  */
@@ -971,11 +989,10 @@ bool Tracking::TrackWithMotionModel()
 /**
  * @brief 对Local Map的MapPoints进行跟踪
  * 
- * 1. 根据匀速度模型估计当前帧的姿态
- * 2. 非单目情况，需要对上一帧产生一些新的MapPoints（临时）
- * 3. 将上一帧的MapPoints投影到当前帧的图像平面上，在投影的位置进行区域匹配
- * 4. 根据匹配对估计当前帧的姿态
- * 5. 根据姿态剔除误匹配
+ * 1. 更新局部地图，包括局部关键帧和关键点
+ * 2. 对局部关键点进行投影匹配
+ * 3. 根据匹配对估计当前帧的姿态
+ * 4. 根据姿态剔除误匹配
  * @return true if success
  * @see V-D track Local Map
  */
@@ -984,7 +1001,7 @@ bool Tracking::TrackLocalMap()
     // We have an estimation of the camera pose and some map points tracked in the frame.
     // We retrieve the local map and try to find matches to points in the local map.
 
-    UpdateLocalMap();
+    UpdateLocalMap(); // Update Local KeyFrames and Local Points
 
     SearchLocalPoints();
 
@@ -1210,8 +1227,13 @@ void Tracking::CreateNewKeyFrame()
     mpLastKeyFrame = pKF;
 }
 
-// 将局部地图中所有的关键点投影到当前帧，并对当前帧中的特征点进行匹配
-// 需要计算重投影坐标，观测方向夹角，预测在当前帧的尺度等等
+
+/**
+ * @brief 对Local MapPoints进行跟踪
+ * 
+ * 将局部地图中所有的关键点投影到当前帧，并对当前帧中的特征点进行匹配 \n
+ * 需要计算重投影坐标，观测方向夹角，预测在当前帧的尺度等等 \n
+ */
 void Tracking::SearchLocalPoints()
 {
     // Do not search map points already matched
@@ -1276,7 +1298,11 @@ void Tracking::SearchLocalPoints()
 }
 
 /**
- * 更新LocalMap
+ * @brief 更新LocalMap
+ *
+ * 局部地图包括： \n
+ * - K1个关键帧、K2个临近关键帧和参考关键帧
+ * - 由这些关键帧观测到的MapPoints
  */
 void Tracking::UpdateLocalMap()
 {
@@ -1288,15 +1314,23 @@ void Tracking::UpdateLocalMap()
     UpdateLocalPoints();
 }
 
+/**
+ * @brief 更新局部关键点，called by UpdateLocalMap()
+ * 
+ * 将mvpLocalKeyFrames的MapPoints取出，更新mvpLocalMapPoints
+ */
 void Tracking::UpdateLocalPoints()
 {
+    // 清空局部关键点
     mvpLocalMapPoints.clear();
 
+    // 遍历局部关键帧
     for(vector<KeyFrame*>::const_iterator itKF=mvpLocalKeyFrames.begin(), itEndKF=mvpLocalKeyFrames.end(); itKF!=itEndKF; itKF++)
     {
         KeyFrame* pKF = *itKF;
-        const vector<MapPoint*> vpMPs = pKF->GetMapPointMatches();
+        const vector<MapPoint*> vpMPs = pKF->Get MapPointMatches();
 
+        // 遍历关键帧的MapPoints
         for(vector<MapPoint*>::const_iterator itMP=vpMPs.begin(), itEndMP=vpMPs.end(); itMP!=itEndMP; itMP++)
         {
             MapPoint* pMP = *itMP;
@@ -1313,10 +1347,15 @@ void Tracking::UpdateLocalPoints()
     }
 }
 
-
+/**
+ * @brief 更新局部关键帧，called by UpdateLocalMap()
+ *
+ * 遍历当前帧的MapPoints，将观测到这些MapPoints的关键帧和相邻的关键帧取出，更新mvpLocalKeyFrames
+ */
 void Tracking::UpdateLocalKeyFrames()
 {
     // Each map point vote for the keyframes in which it has been observed
+    // 遍历当前帧的MapPoints，对观测到这些MapPoints的关键帧进行投票
     map<KeyFrame*,int> keyframeCounter;
     for(int i=0; i<mCurrentFrame.N; i++)
     {
@@ -1325,6 +1364,7 @@ void Tracking::UpdateLocalKeyFrames()
             MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
             if(!pMP->isBad())
             {
+                // 遍历该MapPoint的观测
                 const map<KeyFrame*,size_t> observations = pMP->GetObservations();
                 for(map<KeyFrame*,size_t>::const_iterator it=observations.begin(), itend=observations.end(); it!=itend; it++)
                     keyframeCounter[it->first]++;
@@ -1342,10 +1382,12 @@ void Tracking::UpdateLocalKeyFrames()
     int max=0;
     KeyFrame* pKFmax= static_cast<KeyFrame*>(NULL);
 
+    // 清空局部关键帧
     mvpLocalKeyFrames.clear();
     mvpLocalKeyFrames.reserve(3*keyframeCounter.size());
 
     // All keyframes that observe a map point are included in the local map. Also check which keyframe shares most points
+    // V-D K1: shares the map points with current frame
     for(map<KeyFrame*,int>::const_iterator it=keyframeCounter.begin(), itEnd=keyframeCounter.end(); it!=itEnd; it++)
     {
         KeyFrame* pKF = it->first;
@@ -1365,6 +1407,7 @@ void Tracking::UpdateLocalKeyFrames()
 
 
     // Include also some not-already-included keyframes that are neighbors to already-included keyframes
+    // V-D K2: neighbors to K1 in the covisibility graph
     for(vector<KeyFrame*>::const_iterator itKF=mvpLocalKeyFrames.begin(), itEndKF=mvpLocalKeyFrames.end(); itKF!=itEndKF; itKF++)
     {
         // Limit the number of keyframes
@@ -1374,7 +1417,6 @@ void Tracking::UpdateLocalKeyFrames()
         KeyFrame* pKF = *itKF;
 
         const vector<KeyFrame*> vNeighs = pKF->GetBestCovisibilityKeyFrames(10);
-
         for(vector<KeyFrame*>::const_iterator itNeighKF=vNeighs.begin(), itEndNeighKF=vNeighs.end(); itNeighKF!=itEndNeighKF; itNeighKF++)
         {
             KeyFrame* pNeighKF = *itNeighKF;
@@ -1417,6 +1459,7 @@ void Tracking::UpdateLocalKeyFrames()
 
     }
 
+    // V-D Kref： shares the most map points with current frame
     if(pKFmax)
     {
         mpReferenceKF = pKFmax;
