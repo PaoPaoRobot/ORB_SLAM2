@@ -1386,8 +1386,8 @@ int ORBmatcher::SearchBySim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint*> &
 /**
  * @brief 通过投影，对上一帧的特征点进行跟踪
  *
- * 上一帧中包含了MapPoints，对这些MapPoints进行tracking，由此增加当前帧中MapPoint \n
- * 1. 将上一帧的MapPoint投影到当前帧(根据速度模型可以估计当前帧的Tcw)
+ * 上一帧中包含了MapPoints，对这些MapPoints进行tracking，由此增加当前帧中MapPoints \n
+ * 1. 将上一帧的MapPoints投影到当前帧(根据速度模型可以估计当前帧的Tcw)
  * 2. 在投影点附近根据描述子距离选取匹配，以及最终的方向投票机制进行剔除
  * @param  CurrentFrame 当前帧
  * @param  LastFrame    上一帧
@@ -1486,6 +1486,7 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, 
 
                     if(CurrentFrame.mvuRight[i2]>0)
                     {
+                        // 双目和rgbd的情况，需要保证右图的点也在搜索半径以内
                         const float ur = u - CurrentFrame.mbf*invzc;
                         const float er = fabs(ur - CurrentFrame.mvuRight[i2]);
                         if(er>radius)
@@ -1505,7 +1506,7 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, 
 
                 if(bestDist<=TH_HIGH)
                 {
-                    CurrentFrame.mvpMapPoints[bestIdx2]=pMP;
+                    CurrentFrame.mvpMapPoints[bestIdx2]=pMP; // 为当前帧添加MapPoint
                     nmatches++;
 
                     if(mbCheckOrientation)

@@ -285,7 +285,12 @@ void Frame::UpdatePoseMatrices()
     mOw = -mRcw.t()*mtcw; // mtwc, 即相机在世界坐标系的位置
 }
 
-// 判断一个点是否在视野内
+/**
+ * @brief 判断一个点是否在视野内
+ * @param  pMP             MapPoint
+ * @param  viewingCosLimit viewing Cos Limit
+ * @return                 true if is in view
+ */
 bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
 {
     pMP->mbTrackInView = false;
@@ -304,7 +309,7 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
         return false;
 
     // Project in image and check it is not outside
-    // section V-D 1) 将MapPoint投影到当前帧, 并判断是否在图像内
+    // V-D 1) 将MapPoint投影到当前帧, 并判断是否在图像内
     const float invz = 1.0f/PcZ;
     const float u=fx*PcX*invz+cx;
     const float v=fy*PcY*invz+cy;
@@ -315,7 +320,7 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
         return false;
 
     // Check distance is in the scale invariance region of the MapPoint
-    // section V-D 3) 计算MapPoint到相机中心的距离, 并判断是否在尺度变化的距离内
+    // V-D 3) 计算MapPoint到相机中心的距离, 并判断是否在尺度变化的距离内
     const float maxDistance = pMP->GetMaxDistanceInvariance();
     const float minDistance = pMP->GetMinDistanceInvariance();
     const cv::Mat PO = P-mOw;

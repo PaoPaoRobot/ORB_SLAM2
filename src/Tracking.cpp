@@ -761,9 +761,10 @@ void Tracking::CheckReplacedInLastFrame()
 }
 
 /**
- * @brief 跟踪参考关键帧
+ * @brief 对参考关键帧的MapPoints进行跟踪
  * 
- * 1. 对参考关键帧的MapPoints进行跟踪
+ * 1. 计算当前帧的词包，将当前帧的特征点分到特定层的nodes上
+ * 2. 对属于同一node的描述子进行匹配
  * 2. 根据匹配对估计当前帧的姿态
  * 3. 根据姿态剔除误匹配
  * @return 如果匹配数大于10，返回true
@@ -813,19 +814,28 @@ bool Tracking::TrackReferenceKeyFrame()
     return nmatchesMap>=10;
 }
 
+/**
+ * @brief 根据深度值为上一帧产生新的MapPoints
+ *
+ * 在双目和rgbd情况下，选取一些深度小一些的点（可靠一些） \n
+ * 可以通过深度值产生一些新的MapPoints \n
+ * 这些临时产生的点会在 Track() 的最后删除
+ */
 void Tracking::UpdateLastFrame()
 {
     // Update pose according to reference keyframe
     KeyFrame* pRef = mLastFrame.mpReferenceKF;
     cv::Mat Tlr = mlRelativeFramePoses.back();
 
-    mLastFrame.SetPose(Tlr*pRef->GetPose());
+    mLastFrame.SetPose(Tlr*pRef->GetPose()); // Tlr*Trw = Tlw
 
+    // 如果上一帧为关键帧，或者单目的情况，则退出
     if(mnLastKeyFrameId==mLastFrame.mnId || mSensor==System::MONOCULAR)
         return;
 
     // Create "visual odometry" MapPoints
     // We sort points according to their measured depth by the stereo/RGB-D sensor
+    // 按照深度从小到大排序
     vector<pair<float,int> > vDepthIdx;
     vDepthIdx.reserve(mLastFrame.N);
     for(int i=0; i<mLastFrame.N;i++)
@@ -844,6 +854,7 @@ void Tracking::UpdateLastFrame()
 
     // We insert all close points (depth<mThDepth)
     // If less than 100 close points, we insert the 100 closest ones.
+    // 添加近距离的点
     int nPoints = 0;
     for(size_t j=0; j<vDepthIdx.size();j++)
     {
@@ -864,9 +875,9 @@ void Tracking::UpdateLastFrame()
             cv::Mat x3D = mLastFrame.UnprojectStereo(i);
             MapPoint* pNewMP = new MapPoint(x3D,mpMap,&mLastFrame,i);
 
-            mLastFrame.mvpMapPoints[i]=pNewMP;
+            mLastFrame.mvpMapPoints[i]=pNewMP; // 添加新的MapPoint
 
-            mlpTemporalPoints.push_back(pNewMP);
+            mlpTemporalPoints.push_back(pNewMP); // 标记为临时添加的MapPoint
             nPoints++;
         }
         else
@@ -880,12 +891,15 @@ void Tracking::UpdateLastFrame()
 }
 
 /**
- * @brief 利用匀速度模型进行跟踪
+ * @brief 根据匀速度模型对上一帧的MapPoints进行跟踪
  * 
- * 1. 根据匀速度模型对上一帧的MapPoints进行跟踪
- * 2. 根据匹配对估计当前帧的姿态
- * 3. 根据姿态剔除误匹配
+ * 1. 根据匀速度模型估计当前帧的姿态
+ * 2. 非单目情况，需要对上一帧产生一些新的MapPoints（临时）
+ * 3. 将上一帧的MapPoints投影到当前帧的图像平面上，在投影的位置进行区域匹配
+ * 4. 根据匹配对估计当前帧的姿态
+ * 5. 根据姿态剔除误匹配
  * @return 如果匹配数大于10，返回true
+ * @see V-B Initial Pose Estimation From Previous Frame
  */
 bool Tracking::TrackWithMotionModel()
 {
@@ -893,7 +907,7 @@ bool Tracking::TrackWithMotionModel()
 
     // Update last frame pose according to its reference keyframe
     // Create "visual odometry" points
-    UpdateLastFrame(); // NOTE ??
+    UpdateLastFrame();
 
     // 根据Const Velocity Model估计当前帧的位姿
     mCurrentFrame.SetPose(mVelocity*mLastFrame.mTcw); 
@@ -954,7 +968,17 @@ bool Tracking::TrackWithMotionModel()
     return nmatchesMap>=10;
 }
 
-// V-D track local map
+/**
+ * @brief 对Local Map的MapPoints进行跟踪
+ * 
+ * 1. 根据匀速度模型估计当前帧的姿态
+ * 2. 非单目情况，需要对上一帧产生一些新的MapPoints（临时）
+ * 3. 将上一帧的MapPoints投影到当前帧的图像平面上，在投影的位置进行区域匹配
+ * 4. 根据匹配对估计当前帧的姿态
+ * 5. 根据姿态剔除误匹配
+ * @return true if success
+ * @see V-D track Local Map
+ */
 bool Tracking::TrackLocalMap()
 {
     // We have an estimation of the camera pose and some map points tracked in the frame.
@@ -1191,7 +1215,7 @@ void Tracking::CreateNewKeyFrame()
 void Tracking::SearchLocalPoints()
 {
     // Do not search map points already matched
-    // NOTE 遍历在当前帧中已经获知的MapPoints，这些点将不能进入接下来的匹配搜索环节，因为已经匹配过了
+    // 遍历在当前帧中已经获知的MapPoints，这些点将不能进入接下来的匹配搜索环节，因为已经匹配过了
     for(vector<MapPoint*>::iterator vit=mCurrentFrame.mvpMapPoints.begin(), vend=mCurrentFrame.mvpMapPoints.end(); vit!=vend; vit++)
     {
         MapPoint* pMP = *vit;
@@ -1213,7 +1237,7 @@ void Tracking::SearchLocalPoints()
     int nToMatch=0;
 
     // Project points in frame and check its visibility
-    // NOTE 遍历LocalMapPoints
+    // 遍历LocalMapPoints
     for(vector<MapPoint*>::iterator vit=mvpLocalMapPoints.begin(), vend=mvpLocalMapPoints.end(); vit!=vend; vit++)
     {
         MapPoint* pMP = *vit;
