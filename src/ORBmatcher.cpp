@@ -47,10 +47,27 @@ ORBmatcher::ORBmatcher(float nnratio, bool checkOri): mfNNratio(nnratio), mbChec
 {
 }
 
-// 将Local MapPoint投影到Frame中, 由此增加Frame中MapPoint
+// 
 // 通过重投影的办法获得一些地图中的点与当前帧特征点的匹配
 // 像素搜索范围和尺度范围之前已经计算出来
 // 只有被标记的点才会进行匹配搜索
+// 
+/**
+ * 
+ *
+ * 上一帧中包含了MapPoints，对这些MapPoints进行tracking，由此增加当前帧中MapPoints \n
+ * 1. 将上一帧的MapPoints投影到当前帧(根据速度模型可以估计当前帧的Tcw)
+ * 2. 在投影点附近根据描述子距离选取匹配，以及最终的方向投票机制进行剔除
+
+/**
+ * @brief 通过投影，对Local MapPoint进行跟踪
+ *
+ * 将Local MapPoint投影到当前帧中, 由此增加当前帧中中MapPoints
+ * @param  F           当前帧
+ * @param  vpMapPoints Local MapPoints
+ * @param  th          阈值
+ * @return             成功匹配的数量
+ */
 int ORBmatcher::SearchByProjection(Frame &F, const vector<MapPoint*> &vpMapPoints, const float th)
 {
     int nmatches=0;

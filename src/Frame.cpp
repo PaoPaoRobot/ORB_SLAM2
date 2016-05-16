@@ -288,7 +288,7 @@ void Frame::UpdatePoseMatrices()
 /**
  * @brief 判断一个点是否在视野内
  * @param  pMP             MapPoint
- * @param  viewingCosLimit viewing Cos Limit
+ * @param  viewingCosLimit 视角和平均视角的方向阈值
  * @return                 true if is in view
  */
 bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
@@ -299,7 +299,7 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
     cv::Mat P = pMP->GetWorldPos(); 
 
     // 3D in camera coordinates
-    const cv::Mat Pc = mRcw*P+mtcw;
+    const cv::Mat Pc = mRcw*P+mtcw; // 这里的Rt是经过初步的优化后的
     const float &PcX = Pc.at<float>(0);
     const float &PcY= Pc.at<float>(1);
     const float &PcZ = Pc.at<float>(2);
@@ -330,7 +330,7 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
         return false;
 
    // Check viewing angle
-   // section V-D 2) 计算视角和平均视角的方向, 并判断是否小于60度
+   // V-D 2) 计算视角和平均视角的方向, 并判断是否小于60度
     cv::Mat Pn = pMP->GetNormal();
 
     const float viewCos = PO.dot(Pn)/dist;
@@ -339,14 +339,13 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
         return false;
 
     // Predict scale in the image
-    // section V-D 4) NOTE 不太清楚
-    //在尺度缩放比例中寻找和ratio相近的尺度，该尺度相对于当前帧
+    // V-D 4) 在尺度缩放比例中寻找和ratio相近的尺度，该尺度相对于当前帧
     const int nPredictedLevel = pMP->PredictScale(dist,mfLogScaleFactor);
 	if(nPredictedLevel>=mnScaleLevels || nPredictedLevel<0)
 		return false;
 
     // Data used by the tracking
-    //标记该点将来要被投影
+    // 标记该点将来要被投影
     pMP->mbTrackInView = true;
     pMP->mTrackProjX = u;
     pMP->mTrackProjXR = u - mbf*invz;
