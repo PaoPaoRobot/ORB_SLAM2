@@ -429,10 +429,11 @@ void Tracking::Track()
             // Update motion model
             if(!mLastFrame.mTcw.empty())
             {
+                // 更新速度
                 cv::Mat LastTwc = cv::Mat::eye(4,4,CV_32F);
                 mLastFrame.GetRotationInverse().copyTo(LastTwc.rowRange(0,3).colRange(0,3));
                 mLastFrame.GetCameraCenter().copyTo(LastTwc.rowRange(0,3).col(3));
-                mVelocity = mCurrentFrame.mTcw*LastTwc;
+                mVelocity = mCurrentFrame.mTcw*LastTwc; // Tcl
             }
             else
                 mVelocity = cv::Mat();
@@ -440,6 +441,7 @@ void Tracking::Track()
             mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.mTcw);
 
             // Clean temporal point matches
+            // 清除只有一个观测的MapPoints
             for(int i=0; i<mCurrentFrame.N; i++)
             {
                 MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
@@ -452,6 +454,7 @@ void Tracking::Track()
             }
 
             // Delete temporal MapPoints
+            // 清除临时的MapPoints，这些MapPoints在TrackWithMotionModel里生成（仅双目和rgbd）
             for(list<MapPoint*>::iterator lit = mlpTemporalPoints.begin(), lend =  mlpTemporalPoints.end(); lit!=lend; lit++)
             {
                 MapPoint* pMP = *lit;
