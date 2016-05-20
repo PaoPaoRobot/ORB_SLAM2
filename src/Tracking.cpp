@@ -1335,7 +1335,7 @@ void Tracking::UpdateLocalPoints()
     for(vector<KeyFrame*>::const_iterator itKF=mvpLocalKeyFrames.begin(), itEndKF=mvpLocalKeyFrames.end(); itKF!=itEndKF; itKF++)
     {
         KeyFrame* pKF = *itKF;
-        const vector<MapPoint*> vpMPs = pKF->Get MapPointMatches();
+        const vector<MapPoint*> vpMPs = pKF->GetMapPointMatches();
 
         // 遍历关键帧的MapPoints
         for(vector<MapPoint*>::const_iterator itMP=vpMPs.begin(), itEndMP=vpMPs.end(); itMP!=itEndMP; itMP++)

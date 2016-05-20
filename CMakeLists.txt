@@ -8,11 +8,12 @@ ENDIF()
 MESSAGE("Build type: " ${CMAKE_BUILD_TYPE})
 
 # Check C++11 or C++0x support
-  if( CMAKE_BUILD_TYPE MATCHES "Debug" )
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -Wall -msse3 -std=c++11 -pthread -g -march=native")
-  else( CMAKE_BUILD_TYPE MATCHES "Release" )
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -Wall -msse3 -std=c++11 -pthread -O3 -march=native")
-  endif( CMAKE_BUILD_TYPE MATCHES "Debug" )
+add_definitions(-DCOMPILEDWITHC11)
+if( CMAKE_BUILD_TYPE MATCHES "Debug" )
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -Wall -msse3 -std=c++11 -pthread -g -march=native")
+else( CMAKE_BUILD_TYPE MATCHES "Release" )
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -Wall -msse3 -std=c++11 -pthread -O3 -march=native")
+endif( CMAKE_BUILD_TYPE MATCHES "Debug" )
 
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 
@@ -59,7 +60,9 @@ ${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
 ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
 )
 
-# Build examples
+add_executable(mono_kitti Examples/Monocular/mono_kitti.cc)
+target_link_libraries(mono_kitti ${PROJECT_NAME})
+
 add_executable(stereo_kitti Examples/Stereo/stereo_kitti.cpp)
 target_link_libraries(stereo_kitti ${PROJECT_NAME})
 

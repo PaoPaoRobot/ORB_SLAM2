@@ -389,7 +389,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
     {
 
         vSE3->setEstimate(Converter::toSE3Quat(pFrame->mTcw));
-        optimizer.initialzizeOptimization(0);
+        optimizer.initializeOptimization(0);
         optimizer.optimize(its[it]);
 
         nBad=0;

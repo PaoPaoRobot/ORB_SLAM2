@@ -125,13 +125,20 @@ cv::Mat KeyFrame::GetTranslation()
     return Tcw.rowRange(0,3).col(3).clone();
 }
 
+/**
+ * @brief 为关键帧之间添加连接
+ * 
+ * 更新了mConnectedKeyFrameWeights
+ * @param pKF    关键帧
+ * @param weight 权重，该关键帧与pKF共同观测到的3d点数量
+ */
 void KeyFrame::AddConnection(KeyFrame *pKF, const int &weight)
 {
     {
         unique_lock<mutex> lock(mMutexConnections);
-        if(!mConnectedKeyFrameWeights.count(pKF))
+        if(!mConnectedKeyFrameWeights.count(pKF)) // 之前没有连接
             mConnectedKeyFrameWeights[pKF]=weight;
-        else if(mConnectedKeyFrameWeights[pKF]!=weight)
+        else if(mConnectedKeyFrameWeights[pKF]!=weight) // 之前连接的权重不一样
             mConnectedKeyFrameWeights[pKF]=weight;
         else
             return;
@@ -140,27 +147,39 @@ void KeyFrame::AddConnection(KeyFrame *pKF, const int &weight)
     UpdateBestCovisibles();
 }
 
+/**
+ * @brief 按照权重对连接的关键帧进行排序
+ * 
+ * 更新后的变量存储在mvpOrderedConnectedKeyFrames和mvOrderedWeights中
+ */
 void KeyFrame::UpdateBestCovisibles()
 {
     unique_lock<mutex> lock(mMutexConnections);
     vector<pair<int,KeyFrame*> > vPairs;
     vPairs.reserve(mConnectedKeyFrameWeights.size());
+    // 取出所有连接的关键帧
     for(map<KeyFrame*,int>::iterator mit=mConnectedKeyFrameWeights.begin(), mend=mConnectedKeyFrameWeights.end(); mit!=mend; mit++)
        vPairs.push_back(make_pair(mit->second,mit->first));
 
+    // 按照权重进行排序
     sort(vPairs.begin(),vPairs.end());
-    list<KeyFrame*> lKFs;
-    list<int> lWs;
+    list<KeyFrame*> lKFs; // keyframe
+    list<int> lWs; // weight
     for(size_t i=0, iend=vPairs.size(); i<iend;i++)
     {
         lKFs.push_front(vPairs[i].second);
         lWs.push_front(vPairs[i].first);
     }
 
+    // 权重从大到小
     mvpOrderedConnectedKeyFrames = vector<KeyFrame*>(lKFs.begin(),lKFs.end());
     mvOrderedWeights = vector<int>(lWs.begin(), lWs.end());    
 }
 
+/**
+ * @brief 得到与该关键帧连接的关键帧
+ * @return 连接的关键帧
+ */
 set<KeyFrame*> KeyFrame::GetConnectedKeyFrames()
 {
     unique_lock<mutex> lock(mMutexConnections);
@@ -170,12 +189,23 @@ set<KeyFrame*> KeyFrame::GetConnectedKeyFrames()
     return s;
 }
 
+/**
+ * @brief 得到与该关键帧连接的关键帧(已按权值排序)
+ * @return 连接的关键帧
+ */
 vector<KeyFrame*> KeyFrame::GetVectorCovisibleKeyFrames()
 {
     unique_lock<mutex> lock(mMutexConnections);
     return mvpOrderedConnectedKeyFrames;
 }
 
+/**
+ * @brief 得到与该关键帧连接的前N个关键帧(已按权值排序)
+ * 
+ * 如果连接的关键帧少于N，则返回所有连接的关键帧
+ * @param N 前N个
+ * @return 连接的关键帧
+ */
 vector<KeyFrame*> KeyFrame::GetBestCovisibilityKeyFrames(const int &N)
 {
     unique_lock<mutex> lock(mMutexConnections);
@@ -183,9 +213,13 @@ vector<KeyFrame*> KeyFrame::GetBestCovisibilityKeyFrames(const int &N)
         return mvpOrderedConnectedKeyFrames;
     else
         return vector<KeyFrame*>(mvpOrderedConnectedKeyFrames.begin(),mvpOrderedConnectedKeyFrames.begin()+N);
-
 }
 
+/**
+ * @brief 得到与该关键帧连接的权重大于等于w的关键帧
+ * @param w 权重
+ * @return 连接的关键帧
+ */
 vector<KeyFrame*> KeyFrame::GetCovisiblesByWeight(const int &w)
 {
     unique_lock<mutex> lock(mMutexConnections);
@@ -203,6 +237,11 @@ vector<KeyFrame*> KeyFrame::GetCovisiblesByWeight(const int &w)
     }
 }
 
+/**
+ * @brief 得到该关键帧与pKF的权重
+ * @param  pKF 关键帧
+ * @return     权重
+ */
 int KeyFrame::GetWeight(KeyFrame *pKF)
 {
     unique_lock<mutex> lock(mMutexConnections);
@@ -303,23 +342,25 @@ MapPoint* KeyFrame::GetMapPoint(const size_t &idx)
 
 //对插入的关键帧，进行covisibility图的更新
 //首先获得该关键帧的所有3d点，统计观测到这些3d点的所有关键帧
-//对每一个找到的关键帧，建立一条边，边的权值是该关键帧与当前关键帧公共3d点的个数，
+//对每一个找到的关键帧，建立一条边，边的权重是该关键帧与当前关键帧公共3d点的个数，
 //并且该权重必须大于一个阈值，如果没有超过该阈值的权重，那么就只保留权重最大的边
 //对这些连接按照权重从大到小进行排序，以方便将来的处理
 //更新完covisibility图之后，还需要更新生成树，连接权重最大的边，类似于最大生成树
 void KeyFrame::UpdateConnections()
 {
-    map<KeyFrame*,int> KFcounter;
+    map<KeyFrame*,int> KFcounter; // 关键帧-权重，权重为关键帧与当前关键帧公共3d点的个数
 
     vector<MapPoint*> vpMP;
 
     {
+        // 获得该关键帧的所有3d
         unique_lock<mutex> lockMPs(mMutexFeatures);
         vpMP = mvpMapPoints;
     }
 
     //For all map points in keyframe check in which other keyframes are they seen
     //Increase counter for those keyframes
+    // 统计观测到这些3d点的所有关键帧
     for(vector<MapPoint*>::iterator vit=vpMP.begin(), vend=vpMP.end(); vit!=vend; vit++)
     {
         MapPoint* pMP = *vit;
@@ -357,9 +398,9 @@ void KeyFrame::UpdateConnections()
         if(mit->second>nmax)
         {
             nmax=mit->second;
-            pKFmax=mit->first;
+            pKFmax=mit->first; // 找到权重最大的关键帧
         }
-        if(mit->second>=th)
+        if(mit->second>=th) // 权重需要大于阈值
         {
             vPairs.push_back(make_pair(mit->second,mit->first));
             (mit->first)->AddConnection(this,mit->second);
