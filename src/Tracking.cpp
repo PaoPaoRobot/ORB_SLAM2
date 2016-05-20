@@ -1046,20 +1046,24 @@ bool Tracking::TrackLocalMap()
         return true;
 }
 
-
-// 判断当前帧是否为关键帧
+/**
+ * @brief 断当前帧是否为关键帧
+ * @return true if needed
+ */
 bool Tracking::NeedNewKeyFrame()
 {
     if(mbOnlyTracking)
         return false;
 
     // If Local Mapping is freezed by a Loop Closure do not insert keyframes
+    // 如果局部地图被闭环检测使用，则不插入关键帧
     if(mpLocalMapper->isStopped() || mpLocalMapper->stopRequested())
         return false;
 
     const int nKFs = mpMap->KeyFramesInMap();
 
     // Do not insert keyframes if not enough frames have passed from last relocalisation
+    // 上一次重定位后，如果没有处理再mMaxFrames帧，不插入关键帧
     if(mCurrentFrame.mnId<mnLastRelocFrameId+mMaxFrames && nKFs>mMaxFrames)
         return false;
 
