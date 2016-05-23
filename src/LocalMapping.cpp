@@ -67,32 +67,11 @@ void LocalMapping::Run()
 
             // Triangulate new MapPoints
             // VI-C new map points creation
-            // 找到当前关键帧在图中邻接的一些关键帧
-            // 对于每一个邻接的关键帧，根据当前关键帧和该邻接关键帧的姿态，算出两幅图像的基本矩阵
-            // 搜索当前关键帧和邻接关键帧之间未成为3d点的特征点匹配
-            //         在搜索特征点匹配时，先获分别获得这两个帧在数据库中所有二级节点对应的特征点集
-            //         获取两个帧中所有相等的二级节点对，在每个二级节点对
-            //         能够得到一对特征点集合，分别对应当前关键帧和相邻关键帧
-            //         在两个集合中利用极线约束(基本矩阵)和描述子距离来寻求特征点匹配对
-            //         可以在满足极线约束的条件下搜索描述子距离最小并且不超过一定阈值的匹配对
-            // 获得未成为3d点的特征点匹配集合后，通过三角化获得3d坐标
-            // 在通过平行、重投影误差、尺度一致性等检查后，则建立一个对应的3d点MapPoint对象
-            // 需要标记新的3d点与两个关键帧之间的观测关系，还需要计算3d点的平均观测方向以及最佳的描述子
-            // 最后将新产生的3d点放到检测队列中等待检验
             CreateNewMapPoints();
 
             if(!CheckNewKeyFrames())
             {
                 // Find more matches in neighbor keyframes and fuse point duplications
-                // 产生新的3d点后，该3d点有可能会被其他关键帧找到
-                // 找到当前关键帧一二级邻接关键帧集合k12
-                // 判断并处理当前关键帧的3d点与k12的关系
-                // 判断并处理k12的所有3d点与当前关键帧的关系
-                // 处理3d点和关键帧的关系时，先将3d点投影到关键帧上，在投影点附近搜索匹配特征点
-                // 如果找到匹配的特征点，那么判断该特征点是否成为了3d点，如果已经成为3d点，那么将两个3d点进行合并，注意观测它的关键帧也要合并
-                // 如果没有成为3d点，那么就添加这个3d点与关键帧还有特征点之间的关系
-                // 处理完3d点和关键帧的关系后需要更新相应的图和树结构
-                // 还需要更新所涉及3d点的观测方向，与引用关键帧的距离，以及最合适的描述子
                 SearchInNeighbors();
             }
 
@@ -166,6 +145,10 @@ bool LocalMapping::CheckNewKeyFrames()
 
 /**
  * @brief 处理列表中的关键帧
+ * 
+ * - 计算Bow
+ * - 关联当前关键帧至MapPoints，并更新MapPoints的平均观测方向和观测距离范围
+ * - 插入关键帧，更新Covisibility图和Ensenssial图
  */
 void LocalMapping::ProcessNewKeyFrame()
 {
@@ -189,6 +172,7 @@ void LocalMapping::ProcessNewKeyFrame()
         {
             if(!pMP->isBad())
             {
+                // NOTE 
                 if(!pMP->IsInKeyFrame(mpCurrentKeyFrame))
                 {
                     pMP->AddObservation(mpCurrentKeyFrame, i);
@@ -207,7 +191,7 @@ void LocalMapping::ProcessNewKeyFrame()
     }    
 
     // Update links in the Covisibility Graph
-    // 插入关键帧后，更新Covisibility图和ensenssial图(tree)
+    // 插入关键帧后，更新Covisibility图和Ensenssial图(tree)
     mpCurrentKeyFrame->UpdateConnections();
 
     // Insert Keyframe in Map
@@ -227,7 +211,7 @@ void LocalMapping::MapPointCulling()
         nThObs = 3;
     const int cnThObs = nThObs;
 	
-	//遍历等待检查的所有点
+	// 遍历等待检查的所有点
     while(lit!=mlpRecentAddedMapPoints.end())
     {
         MapPoint* pMP = *lit;
@@ -238,16 +222,15 @@ void LocalMapping::MapPointCulling()
         }
         else if(pMP->GetFoundRatio()<0.25f )
         {
-        	// VI-B 条件1,能找到该点的帧不应该少于理论上观测到该点的帧的1/4
-        	// 注意不一定是关键帧
+        	// VI-B 条件1，能找到该点的帧不应该少于理论上观测到该点的帧的1/4
+        	// IncreaseFound, IncreaseVisible。注意不一定是关键帧。
             pMP->SetBadFlag();
             lit = mlpRecentAddedMapPoints.erase(lit);
         }
         else if(((int)nCurrentKFid-(int)pMP->mnFirstKFid)>=2 && pMP->Observations()<=cnThObs)
         {
-        	// 从该点建立开始，到现在已经过了不小于2帧，但是观测到该点的关键帧数不超过2
+        	// VI-B 条件2，从该点建立开始，到现在已经过了不小于2帧，但是观测到该点的关键帧数不超过2
         	// 那么该点检验不合格
-        	// VI-B 条件2
             pMP->SetBadFlag();
             lit = mlpRecentAddedMapPoints.erase(lit);
         }
@@ -259,6 +242,18 @@ void LocalMapping::MapPointCulling()
     }
 }
 
+// 找到当前关键帧在图中邻接的一些关键帧
+// 对于每一个邻接的关键帧，根据当前关键帧和该邻接关键帧的姿态，算出两幅图像的基本矩阵
+// 搜索当前关键帧和邻接关键帧之间未成为3d点的特征点匹配
+//         在搜索特征点匹配时，先获分别获得这两个帧在数据库中所有二级节点对应的特征点集
+//         获取两个帧中所有相等的二级节点对，在每个二级节点对
+//         能够得到一对特征点集合，分别对应当前关键帧和相邻关键帧
+//         在两个集合中利用极线约束(基本矩阵)和描述子距离来寻求特征点匹配对
+//         可以在满足极线约束的条件下搜索描述子距离最小并且不超过一定阈值的匹配对
+// 获得未成为3d点的特征点匹配集合后，通过三角化获得3d坐标
+// 在通过平行、重投影误差、尺度一致性等检查后，则建立一个对应的3d点MapPoint对象
+// 需要标记新的3d点与两个关键帧之间的观测关系，还需要计算3d点的平均观测方向以及最佳的描述子
+// 最后将新产生的3d点放到检测队列中等待检验
 void LocalMapping::CreateNewMapPoints()
 {
     // Retrieve neighbor keyframes in covisibility graph
@@ -276,6 +271,7 @@ void LocalMapping::CreateNewMapPoints()
     cv::Mat Tcw1(3,4,CV_32F);
     Rcw1.copyTo(Tcw1.colRange(0,3));
     tcw1.copyTo(Tcw1.col(3));
+
     // 插入的关键帧在世界坐标系中的坐标
     cv::Mat Ow1 = mpCurrentKeyFrame->GetCameraCenter();
 
@@ -315,11 +311,11 @@ void LocalMapping::CreateNewMapPoints()
         }
         else
         {
-			// 邻接关键帧的场景深度中值
+            // 邻接关键帧的场景深度中值
             const float medianDepthKF2 = pKF2->ComputeSceneMedianDepth(2);
-        	// 景深与距离的比例
+            // 景深与距离的比例
             const float ratioBaselineDepth = baseline/medianDepthKF2;
-        	// 如果特别远(比例特别小)，那么不考虑当前邻接的关键帧
+            // 如果特别远(比例特别小)，那么不考虑当前邻接的关键帧
             if(ratioBaselineDepth<0.01)
                 continue;
         }
@@ -522,6 +518,15 @@ void LocalMapping::CreateNewMapPoints()
     }
 }
 
+// 产生新的3d点后，该3d点有可能会被其他关键帧找到
+// 找到当前关键帧一二级邻接关键帧集合k12
+// 判断并处理当前关键帧的3d点与k12的关系
+// 判断并处理k12的所有3d点与当前关键帧的关系
+// 处理3d点和关键帧的关系时，先将3d点投影到关键帧上，在投影点附近搜索匹配特征点
+// 如果找到匹配的特征点，那么判断该特征点是否成为了3d点，如果已经成为3d点，那么将两个3d点进行合并，注意观测它的关键帧也要合并
+// 如果没有成为3d点，那么就添加这个3d点与关键帧还有特征点之间的关系
+// 处理完3d点和关键帧的关系后需要更新相应的图和树结构
+// 还需要更新所涉及3d点的观测方向，与引用关键帧的距离，以及最合适的描述子
 void LocalMapping::SearchInNeighbors()
 {
     // Retrieve neighbor keyframes
@@ -552,11 +557,9 @@ void LocalMapping::SearchInNeighbors()
         }
     }
 
-
     // Search matches by projection from current KF in target KFs
     ORBmatcher matcher;
 	
-	// 当前关键帧中所有的3d点
     vector<MapPoint*> vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
     for(vector<KeyFrame*>::iterator vit=vpTargetKFs.begin(), vend=vpTargetKFs.end(); vit!=vend; vit++)
     {

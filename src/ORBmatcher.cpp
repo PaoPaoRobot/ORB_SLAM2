@@ -76,14 +76,14 @@ int ORBmatcher::SearchByProjection(Frame &F, const vector<MapPoint*> &vpMapPoint
 
         if(pMP->isBad())
             continue;
-			
+            
         // 通过距离预测的金字塔层数，该层数相对于当前的帧
         const int &nPredictedLevel = pMP->mnTrackScaleLevel;
 
         // The size of the window will depend on the viewing direction
         // 搜索窗口的大小取决于视角, 当mTrackViewCos接近于90度时,r取一个较小的值
         float r = RadiusByViewingCos(pMP->mTrackViewCos);
-		
+        
         // 如果需要进行更粗糙的搜索，则增大范围
         if(bFactor)
             r*=th;
@@ -123,7 +123,7 @@ int ORBmatcher::SearchByProjection(Frame &F, const vector<MapPoint*> &vpMapPoint
             const cv::Mat &d = F.mDescriptors.row(idx);
 
             const int dist = DescriptorDistance(MPdescriptor,d);
-			
+            
             // 根据描述子寻找描述子距离最小和次小的特征点
             if(dist<bestDist)
             {
@@ -701,8 +701,16 @@ int ORBmatcher::SearchByBoW(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
     return nmatches;
 }
 
-// 利用基本矩阵F12,在两个关键帧之间未匹配的特征点中产生新的3d点
-// vMatchedPairs存储匹配特征点对，特征点用其在关键帧中的索引表示
+/**
+ * @brief 利用基本矩阵F12，在两个关键帧之间未匹配的特征点中产生新的3d点
+ * 
+ * @param pKF1          关键帧1
+ * @param pKF2          关键帧2
+ * @param F12           基础矩阵
+ * @param vMatchedPairs 存储匹配特征点对，特征点用其在关键帧中的索引表示
+ * @param bOnlyStereo   在双目和rgbd情况下，要求特征点在右图存在匹配
+ * @return              成功匹配的数量
+ */
 int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F12,
                                        vector<pair<size_t, size_t> > &vMatchedPairs, const bool bOnlyStereo)
 {    
@@ -712,11 +720,12 @@ int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F
     const DBoW2::FeatureVector &vFeatVec1 = pKF1->mFeatVec;
     const DBoW2::FeatureVector &vFeatVec2 = pKF2->mFeatVec;
 
-    //Compute epipole in second image
-    cv::Mat Cw = pKF1->GetCameraCenter();
-    cv::Mat R2w = pKF2->GetRotation();
-    cv::Mat t2w = pKF2->GetTranslation();
-    cv::Mat C2 = R2w*Cw+t2w;
+    // Compute epipole in second image
+    // 计算KF1的相机中心在KF2图像平面的坐标，即极点坐标
+    cv::Mat Cw = pKF1->GetCameraCenter(); // twc1
+    cv::Mat R2w = pKF2->GetRotation();    // Rc2w
+    cv::Mat t2w = pKF2->GetTranslation(); // tc2w
+    cv::Mat C2 = R2w*Cw+t2w; // tc2c1 KF1的相机中心在KF2坐标系的表示
     const float invz = 1.0f/C2.at<float>(2);
     const float ex =pKF2->fx*C2.at<float>(0)*invz+pKF2->cx;
     const float ey =pKF2->fy*C2.at<float>(1)*invz+pKF2->cy;
@@ -735,27 +744,29 @@ int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F
 
     const float factor = 1.0f/HISTO_LENGTH;
 
+    // We perform the matching over ORB that belong to the same vocabulary node (at a certain level)
+    // 将属于同一节点(特定层)的ORB特征进行匹配
     DBoW2::FeatureVector::const_iterator f1it = vFeatVec1.begin();
     DBoW2::FeatureVector::const_iterator f2it = vFeatVec2.begin();
     DBoW2::FeatureVector::const_iterator f1end = vFeatVec1.end();
     DBoW2::FeatureVector::const_iterator f2end = vFeatVec2.end();
 
-	// 遍历pKF1和pKF2中相等的二级节点
+    // 遍历pKF1和pKF2中相等的二级节点
     while(f1it!=f1end && f2it!=f2end)
     {
         if(f1it->first == f2it->first)
         {
-			// f1it->second为pKF1中当前二级节点对应的特征点索引集合(vector)
+            // f1it->second为pKF1中当前二级节点对应的特征点索引集合(vector)
             for(size_t i1=0, iend1=f1it->second.size(); i1<iend1; i1++)
             {
-				// 获取pKF1中当前二级节点对应的特征点索引集合中的某个特征点索引
+                // 获取pKF1中当前二级节点对应的特征点索引集合中的某个特征点索引
                 const size_t idx1 = f1it->second[i1];
                 
-				// 获取当前特征点索引idx1在pKF1中对应的3d点
+                // 获取当前特征点索引idx1在pKF1中对应的3d点
                 MapPoint* pMP1 = pKF1->GetMapPoint(idx1);
                 
                 // If there is already a MapPoint skip
-				// 由于寻找的是未匹配的特征点，所以pMP1应该为NULL
+                // 由于寻找的是未匹配的特征点，所以pMP1应该为NULL
                 if(pMP1)
                     continue;
 
@@ -765,27 +776,27 @@ int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F
                     if(!bStereo1)
                         continue;
                 
-				// 获取当前特征点索引idx1在pKF1中对应的特征点
+                // 获取当前特征点索引idx1在pKF1中对应的特征点
                 const cv::KeyPoint &kp1 = pKF1->mvKeysUn[idx1];
                 
-				// 获取当前特征点索引idx1在pKF1中对应特征点的描述子
+                // 获取当前特征点索引idx1在pKF1中对应特征点的描述子
                 const cv::Mat &d1 = pKF1->mDescriptors.row(idx1);
                 
                 int bestDist = TH_LOW;
                 int bestIdx2 = -1;
                 
-				// 遍历pKF2中相等二级节点的所有特征点的索引
+                // 遍历pKF2中相等二级节点的所有特征点的索引
                 for(size_t i2=0, iend2=f2it->second.size(); i2<iend2; i2++)
                 {
-					// 获取pKF2中相等二级节点的当前特征点的索引
+                    // 获取pKF2中相等二级节点的当前特征点的索引
                     size_t idx2 = f2it->second[i2];
                     
-					// 获得pKF2当前特征点索引idx2对应的3d点
+                    // 获得pKF2当前特征点索引idx2对应的3d点
                     MapPoint* pMP2 = pKF2->GetMapPoint(idx2);
                     
                     // If we have already matched or there is a MapPoint skip
-					// 如果pKF2当前特征点索引idx2已经被匹配过或者对应的3d点非空
-					// 那么这个索引idx2就不能被考虑
+                    // 如果pKF2当前特征点索引idx2已经被匹配过或者对应的3d点非空
+                    // 那么这个索引idx2就不能被考虑
                     if(vbMatched2[idx2] || pMP2)
                         continue;
 
@@ -797,7 +808,7 @@ int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F
                     
                     const cv::Mat &d2 = pKF2->mDescriptors.row(idx2);
                     
-					// 计算idx1与idx2在两个关键帧中对应特征点的描述子距离
+                    // 计算idx1与idx2在两个关键帧中对应特征点的描述子距离
                     const int dist = DescriptorDistance(d1,d2);
                     
                     if(dist>TH_LOW || dist>bestDist)
@@ -904,6 +915,7 @@ int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const
 
     const int nMPs = vpMapPoints.size();
 
+    // 遍历所有的MapPoints
     for(int i=0; i<nMPs; i++)
     {
         MapPoint* pMP = vpMapPoints[i];
@@ -950,8 +962,8 @@ int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const
             continue;
 
         int nPredictedLevel = pMP->PredictScale(dist3D,pKF->mfLogScaleFactor);
-		if( nPredictedLevel>=pKF->mnScaleLevels ||nPredictedLevel<0)
-			continue;
+        if( nPredictedLevel>=pKF->mnScaleLevels ||nPredictedLevel<0)
+            continue;
 
         // Search in a radius
         const float radius = th*pKF->mvScaleFactors[nPredictedLevel];

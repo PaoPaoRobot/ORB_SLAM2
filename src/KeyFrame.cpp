@@ -340,12 +340,15 @@ MapPoint* KeyFrame::GetMapPoint(const size_t &idx)
     return mvpMapPoints[idx];
 }
 
-//对插入的关键帧，进行covisibility图的更新
-//首先获得该关键帧的所有3d点，统计观测到这些3d点的所有关键帧
-//对每一个找到的关键帧，建立一条边，边的权重是该关键帧与当前关键帧公共3d点的个数，
-//并且该权重必须大于一个阈值，如果没有超过该阈值的权重，那么就只保留权重最大的边
-//对这些连接按照权重从大到小进行排序，以方便将来的处理
-//更新完covisibility图之后，还需要更新生成树，连接权重最大的边，类似于最大生成树
+/**
+ * @brief 更新图的连接
+ * 
+ * 1. 首先获得该关键帧的所有3d点，统计观测到这些3d点的所有关键帧
+ * 2. 对每一个找到的关键帧，建立一条边，边的权重是该关键帧与当前关键帧公共3d点的个数。
+ *    并且该权重必须大于一个阈值，如果没有超过该阈值的权重，那么就只保留权重最大的边。
+ * 3. 对这些连接按照权重从大到小进行排序，以方便将来的处理
+ * 4. 更新完covisibility图之后，还需要更新生成树，连接权重最大的边，类似于最大生成树
+ */
 void KeyFrame::UpdateConnections()
 {
     map<KeyFrame*,int> KFcounter; // 关键帧-权重，权重为关键帧与当前关键帧公共3d点的个数
@@ -398,15 +401,17 @@ void KeyFrame::UpdateConnections()
         if(mit->second>nmax)
         {
             nmax=mit->second;
-            pKFmax=mit->first; // 找到权重最大的关键帧
+            pKFmax=mit->first; // 找到对应权重最大的关键帧
         }
-        if(mit->second>=th) // 权重需要大于阈值
+        if(mit->second>=th)
         {
+            // 对应权重需要大于阈值，对这些关键帧建立连接
             vPairs.push_back(make_pair(mit->second,mit->first));
             (mit->first)->AddConnection(this,mit->second);
         }
     }
 
+    // 如果没有超过阈值的权重，则对权重最大的关键帧建立连接
     if(vPairs.empty())
     {
         vPairs.push_back(make_pair(nmax,pKFmax));
@@ -426,18 +431,18 @@ void KeyFrame::UpdateConnections()
         unique_lock<mutex> lockCon(mMutexConnections);
 
         // mspConnectedKeyFrames = spConnectedKeyFrames;
-        //更新图的连接
+        // 更新图的连接
         mConnectedKeyFrameWeights = KFcounter;
         mvpOrderedConnectedKeyFrames = vector<KeyFrame*>(lKFs.begin(),lKFs.end());
         mvOrderedWeights = vector<int>(lWs.begin(), lWs.end());
-        //更新生成树的连接
+
+        // 更新生成树的连接
         if(mbFirstConnection && mnId!=0)
         {
             mpParent = mvpOrderedConnectedKeyFrames.front();
             mpParent->AddChild(this);
             mbFirstConnection = false;
         }
-
     }
 }
 
@@ -698,7 +703,11 @@ cv::Mat KeyFrame::UnprojectStereo(int i)
         return cv::Mat();
 }
 
-//评估当前关键帧场景深度，q=2表示中值
+/**
+ * @brief 评估当前关键帧场景深度，q=2表示中值
+ * @param q q=2
+ * @return Median Depth
+ */
 float KeyFrame::ComputeSceneMedianDepth(const int q)
 {
     vector<MapPoint*> vpMapPoints;
@@ -721,7 +730,7 @@ float KeyFrame::ComputeSceneMedianDepth(const int q)
         {
             MapPoint* pMP = mvpMapPoints[i];
             cv::Mat x3Dw = pMP->GetWorldPos();
-            float z = Rcw2.dot(x3Dw)+zcw;
+            float z = Rcw2.dot(x3Dw)+zcw; // (R*x3Dw+t)的第三行，即z
             vDepths.push_back(z);
         }
     }

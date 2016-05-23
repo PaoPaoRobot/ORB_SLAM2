@@ -1477,10 +1477,12 @@ void Tracking::UpdateLocalKeyFrames()
 bool Tracking::Relocalization()
 {
     // Compute Bag of Words Vector
+    // 1. 计算词包
     mCurrentFrame.ComputeBoW();
 
     // Relocalization is performed when tracking is lost
     // Track Lost: Query KeyFrame Database for keyframe candidates for relocalisation
+    // 2. 找到与当前帧相似的关键帧
     vector<KeyFrame*> vpCandidateKFs = mpKeyFrameDB->DetectRelocalizationCandidates(&mCurrentFrame);
 
     if(vpCandidateKFs.empty())
@@ -1510,6 +1512,7 @@ bool Tracking::Relocalization()
             vbDiscarded[i] = true;
         else
         {
+            // 3. 通过BoW进行匹配
             int nmatches = matcher.SearchByBoW(pKF,mCurrentFrame,vvpMapPointMatches[i]);
             if(nmatches<15)
             {
@@ -1518,6 +1521,7 @@ bool Tracking::Relocalization()
             }
             else
             {
+                // 初始化PnPsolver
                 PnPsolver* pSolver = new PnPsolver(mCurrentFrame,vvpMapPointMatches[i]);
                 pSolver->SetRansacParameters(0.99,10,300,4,0.5,5.991);
                 vpPnPsolvers[i] = pSolver;
@@ -1543,6 +1547,7 @@ bool Tracking::Relocalization()
             int nInliers;
             bool bNoMore;
 
+            // 4. 通过EPnP算法估计姿态
             PnPsolver* pSolver = vpPnPsolvers[i];
             cv::Mat Tcw = pSolver->iterate(5,bNoMore,vbInliers,nInliers);
 
@@ -1573,6 +1578,7 @@ bool Tracking::Relocalization()
                         mCurrentFrame.mvpMapPoints[j]=NULL;
                 }
 
+                // 5. 通过PoseOptimization对姿态进行优化求解
                 int nGood = Optimizer::PoseOptimization(&mCurrentFrame);
 
                 if(nGood<10)
@@ -1583,6 +1589,7 @@ bool Tracking::Relocalization()
                         mCurrentFrame.mvpMapPoints[io]=static_cast<MapPoint*>(NULL);
 
                 // If few inliers, search by projection in a coarse window and optimize again
+                // 6. 如果内点较少，则通过投影的方式对为之前未匹配的点进行匹配，再进行优化求解
                 if(nGood<50)
                 {
                     int nadditional =matcher2.SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,10,100);
@@ -1613,7 +1620,6 @@ bool Tracking::Relocalization()
                         }
                     }
                 }
-
 
                 // If the pose is supported by enough inliers stop ransacs and continue
                 if(nGood>=50)
