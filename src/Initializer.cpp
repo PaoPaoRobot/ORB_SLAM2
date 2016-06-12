@@ -46,11 +46,16 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
 {
     // Fill structures with current keypoints and matches with reference frame
     // Reference Frame: 1, Current Frame: 2
+    // Frame 2 特征点
     mvKeys2 = CurrentFrame.mvKeysUn;
 
+    // 记录匹配上的特征点对
     mvMatches12.clear();
     mvMatches12.reserve(mvKeys2.size());
+    // 记录特征点是否有匹配的特征点
     mvbMatched1.resize(mvKeys1.size());
+
+    // 组织特征点对
     for(size_t i=0, iend=vMatches12.size();i<iend; i++)
     {
         if(vMatches12[i]>=0)
@@ -62,9 +67,11 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
             mvbMatched1[i]=false;
     }
 
+    //匹配上的特征点的个数
     const int N = mvMatches12.size();
 
     // Indices for minimum set selection
+    // 生成0到N-1逐渐增加的索引
     vector<size_t> vAllIndices;
     vAllIndices.reserve(N);
     vector<size_t> vAvailableIndices;
@@ -75,6 +82,7 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
     }
 
     // Generate sets of 8 points for each RANSAC iteration
+    // 为RANSAC每个iteration选取8个随机的index（在FindHomography和FindFundamental被调用）
     mvSets = vector< vector<size_t> >(mMaxIterations,vector<size_t>(8,0));
 
     DUtils::Random::SeedRandOnce(0);
@@ -86,11 +94,15 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
         // Select a minimum set
         for(size_t j=0; j<8; j++)
         {
+            // 产生0到N-1的随机数
             int randi = DUtils::Random::RandomInt(0,vAvailableIndices.size()-1);
+            // idx表示哪一个索引对应的特征点被选中
             int idx = vAvailableIndices[randi];
 
             mvSets[it][j] = idx;
 
+            // randi对应的索引已经被选过了，从容器中删除
+            // randi对应的索引用最后一个元素替换，并删掉最后一个元素
             vAvailableIndices[randi] = vAvailableIndices.back();
             vAvailableIndices.pop_back();
         }
@@ -102,6 +114,7 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
     float SH, SF; // score for H and F
     cv::Mat H, F; // H and F
 
+    // ref是引用的功能:http://en.cppreference.com/w/cpp/utility/functional/ref
     // 计算homograpy并打分
     thread threadH(&Initializer::FindHomography,this,ref(vbMatchesInliersH), ref(SH), ref(H));
     // 计算fundamental matrix并打分
@@ -228,6 +241,20 @@ void Initializer::FindFundamental(vector<bool> &vbMatchesInliers, float &score, 
 
 // 从特征点匹配求homography（normalized DLT）
 // Algorithm 4.2 in Multiple View Geometry in Computer Vision. p109
+
+// |x'|     | h1 h2 h3 ||x|
+// |y'| = a | h4 h5 h6 ||y|  simplize: x' = a H x, a is scale constant
+// |1 |     | h7 h8 h9 ||1|
+
+// DLT(direct linear tranform) method to solve this mode
+// x' = a H x 
+// ---> (x') 叉乘 (H x)  = 0
+// ---> Ah = 0
+// A = | 0  0  0 -x -y -1 xy' yy' y'|  h = | h1 h2 h3 h4 h5 h6 h7 h8 h9 |
+//     |-x -y -1  0  0  0 xx' yx' x'|
+
+// SVD to solve the Ah = 0
+// result: Solution is the eigenvector corresponding to smallest eigenvalue of A'A
 cv::Mat Initializer::ComputeH21(const vector<cv::Point2f> &vP1, const vector<cv::Point2f> &vP2)
 {
     const int N = vP1.size();
@@ -272,6 +299,14 @@ cv::Mat Initializer::ComputeH21(const vector<cv::Point2f> &vP1, const vector<cv:
 
 // 从特征点匹配求fundamental matrix（normalized 8点法）
 // Algorithm 11.1 in Multiple View Geometry in Computer Vision. p282
+
+// 中文版 p191:
+// x'Fx = 0
+// ---> Af = 0
+// A = | x'x x'y x' y'x y'y y' x y 1 |, f = | f1 f2 f3 f4 f5 f6 f7 f8 f9 |
+
+// SVD to solve the Af = 0
+// result: Solution is the eigenvector corresponding to smallest eigenvalue of A'A
 cv::Mat Initializer::ComputeF21(const vector<cv::Point2f> &vP1,const vector<cv::Point2f> &vP2)
 {
     const int N = vP1.size();
@@ -343,8 +378,10 @@ float Initializer::CheckHomography(const cv::Mat &H21, const cv::Mat &H12, vecto
 
     const float th = 5.991;
 
+    //信息矩阵，方差平方的倒数
     const float invSigmaSquare = 1.0/(sigma*sigma);
 
+    // N对特征匹配点
     for(int i=0; i<N; i++)
     {
         bool bIn = true;
@@ -359,7 +396,7 @@ float Initializer::CheckHomography(const cv::Mat &H21, const cv::Mat &H12, vecto
 
         // Reprojection error in first image
         // x2in1 = H12*x2
-
+        // 利用x' = Hx，将图像2中的特征点单应到图像1中
         const float w2in1inv = 1.0/(h31inv*u2+h32inv*v2+h33inv);
         const float u2in1 = (h11inv*u2+h12inv*v2+h13inv)*w2in1inv;
         const float v2in1 = (h21inv*u2+h22inv*v2+h23inv)*w2in1inv;
@@ -375,7 +412,7 @@ float Initializer::CheckHomography(const cv::Mat &H21, const cv::Mat &H12, vecto
 
         // Reprojection error in second image
         // x1in2 = H21*x1
-
+        // 利用x' = Hx，将图像1中的特征点单应到图像2中
         const float w1in2inv = 1.0/(h31*u1+h32*v1+h33);
         const float u1in2 = (h11*u1+h12*v1+h13)*w1in2inv;
         const float v1in2 = (h21*u1+h22*v1+h23)*w1in2inv;
@@ -400,8 +437,10 @@ float Initializer::CheckHomography(const cv::Mat &H21, const cv::Mat &H12, vecto
 
 // 对给定的fundamental matrix打分
 // IV. AUTOMATIC MAP INITIALIZATION （2） in Author's paper
-// symmetric transfer errors: 4.2.2 Geometric distance in Multiple View Geometry in Computer Vision.
-// model selection 4.7.1 RANSAC in Multiple View Geometry in Computer Vision
+// symmetric transfer errors: 
+//      4.2.2 Geometric distance in Multiple View Geometry in Computer Vision.
+// model selection 
+//      4.7.1 RANSAC in Multiple View Geometry in Computer Vision
 float Initializer::CheckFundamental(const cv::Mat &F21, vector<bool> &vbMatchesInliers, float sigma)
 {
     const int N = mvMatches12.size();
@@ -439,11 +478,12 @@ float Initializer::CheckFundamental(const cv::Mat &F21, vector<bool> &vbMatchesI
 
         // Reprojection error in second image
         // l2=F21x1=(a2,b2,c2)
-
+        // F21x1可以算出x1在图像中x2对应的线l
         const float a2 = f11*u1+f12*v1+f13;
         const float b2 = f21*u1+f22*v1+f23;
         const float c2 = f31*u1+f32*v1+f33;
 
+        // x2应该在l这条线上:x2l = 0 
         const float num2 = a2*u2+b2*v2+c2;
 
         const float squareDist1 = num2*num2/(a2*a2+b2*b2); // 点到线的几何距离 的平方
@@ -482,8 +522,17 @@ float Initializer::CheckFundamental(const cv::Mat &F21, vector<bool> &vbMatchesI
     return score;
 }
 
-// 从F恢复P
+// 从F恢复R t
+// 参考文献：
 // Result 9.19 in Multiple View Geometry in Computer Vision
+// 度量重构
+// 1 由Fundamental矩阵结合相机内参K，得到Essential矩阵: E = trans(k')Fk
+// 2 SVD分解得到R t: 
+//                            |0 -1 0|
+//   E = U Sigma V'   let W = |1  0 0|
+//                            |0  0 1|
+//   get 4 solutions E = [R|t] R1 = UWV' R2 = UW'V' T1 = U3 T2 = -U3
+// 3 进行cheirality check, 从四个解中找出最合适的解
 bool Initializer::ReconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv::Mat &K,
                             cv::Mat &R21, cv::Mat &t21, vector<cv::Point3f> &vP3D, vector<bool> &vbTriangulated, float minParallax, int minTriangulated)
 {
@@ -586,8 +635,10 @@ bool Initializer::ReconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv:
     return false;
 }
 
-// 从H恢复P
+// 从H恢复R t
+// 参考文献：
 // Faugeras et al, Motion and structure from motion in a piecewise planar environment. International Journal of Pattern Recognition and Artificial Intelligence, 1988.
+// Paper:Deeper understanding of the homography decomposition for vision-based control
 bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv::Mat &K,
                       cv::Mat &R21, cv::Mat &t21, vector<cv::Point3f> &vP3D, vector<bool> &vbTriangulated, float minParallax, int minTriangulated)
 {
@@ -752,6 +803,20 @@ bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv:
 
 // 给定投影矩阵P1,P2和图像上的点kp1,kp2，从而恢复3D坐标
 // 12.2 Linear triangulation methods in Multiple View Geometry in Computer Vision. p312
+// Trianularization: 已知匹配特征点对{x x'} 和 各自相机矩阵{P P'}, 估计三维点 X
+// x' = P'X  x = PX
+//                                              |X|
+//                      |x|     |p1 p2  p3  p4 ||Y|     |x|    |--p0--||.|
+// 它们都属于 x = aPX模型，|y| = a |p5 p6  p7  p8 ||Z| ===>|y| = a|--p1--||X|
+//                      |z|     |p9 p10 p11 p12||1|     |z|    |--p2--||.|
+// 采用DLT的方法：x叉乘PX = 0
+// |yp2 -  p1|     |0|
+// |p0 -  xp2| X = |0| 
+// |xp1 - yp0|     |0|
+//             |yp2   -  p1  |     |0|
+// two points: |p0    -  xp2 | X = |0| ===> AX = 0
+//             |y'p2' -  p1' |     |0|
+//             |p0'   - x'p2'|     |0|
 void Initializer::Triangulate(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const cv::Mat &P1, const cv::Mat &P2, cv::Mat &x3D)
 {
     cv::Mat A(4,4,CV_32F);
