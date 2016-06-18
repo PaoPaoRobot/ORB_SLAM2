@@ -30,17 +30,28 @@
 namespace ORB_SLAM2
 {
 
+/**
+ * @brief 给定参考帧构造Initializer
+ * 
+ * 用reference frame来初始化，这个reference frame就是SLAM正式开始的第一帧
+ * @param ReferenceFrame 参考帧
+ * @param sigma          测量误差
+ * @param iterations     RANSAC迭代次数
+ */
 Initializer::Initializer(const Frame &ReferenceFrame, float sigma, int iterations)
 {
     mK = ReferenceFrame.mK.clone();
 
     mvKeys1 = ReferenceFrame.mvKeysUn;
 
-    mSigma = sigma; // 测量误差
+    mSigma = sigma;
     mSigma2 = sigma*sigma;
     mMaxIterations = iterations;
 }
 
+/**
+ * @brief 并行地计算基础矩阵和单应性矩阵，选取其中一个模型，恢复出最开始两帧之间的相对姿态以及点云
+ */
 bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatches12, cv::Mat &R21, cv::Mat &t21,
                              vector<cv::Point3f> &vP3D, vector<bool> &vbTriangulated)
 {
@@ -67,7 +78,7 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
             mvbMatched1[i]=false;
     }
 
-    //匹配上的特征点的个数
+    // 匹配上的特征点的个数
     const int N = mvMatches12.size();
 
     // Indices for minimum set selection
@@ -137,7 +148,11 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
     return false;
 }
 
-
+/**
+ * @brief 计算单应矩阵
+ *
+ * 假设场景为平面情况下通过前两帧求取Homography矩阵(current frame 2 到 reference frame 1),并得到该模型的评分
+ */
 void Initializer::FindHomography(vector<bool> &vbMatchesInliers, float &score, cv::Mat &H21)
 {
     // Number of putative matches
@@ -188,7 +203,11 @@ void Initializer::FindHomography(vector<bool> &vbMatchesInliers, float &score, c
     }
 }
 
-
+/**
+ * @brief 计算基础矩阵
+ *
+ * 假设场景为非平面情况下通过前两帧求取Fundamental矩阵(current frame 2 到 reference frame 1),并得到该模型的评分
+ */
 void Initializer::FindFundamental(vector<bool> &vbMatchesInliers, float &score, cv::Mat &F21)
 {
     // Number of putative matches
@@ -239,22 +258,25 @@ void Initializer::FindFundamental(vector<bool> &vbMatchesInliers, float &score, 
     }
 }
 
-// 从特征点匹配求homography（normalized DLT）
-// Algorithm 4.2 in Multiple View Geometry in Computer Vision. p109
-
 // |x'|     | h1 h2 h3 ||x|
 // |y'| = a | h4 h5 h6 ||y|  simplize: x' = a H x, a is scale constant
 // |1 |     | h7 h8 h9 ||1|
-
 // DLT(direct linear tranform) method to solve this mode
 // x' = a H x 
 // ---> (x') 叉乘 (H x)  = 0
 // ---> Ah = 0
 // A = | 0  0  0 -x -y -1 xy' yy' y'|  h = | h1 h2 h3 h4 h5 h6 h7 h8 h9 |
 //     |-x -y -1  0  0  0 xx' yx' x'|
-
 // SVD to solve the Ah = 0
 // result: Solution is the eigenvector corresponding to smallest eigenvalue of A'A
+/**
+ * @brief 从特征点匹配求homography（normalized DLT）
+ * 
+ * @param  vP1 归一化后的点, in reference frame
+ * @param  vP2 归一化后的点, in current frame
+ * @return     单应矩阵
+ * @see        Multiple View Geometry in Computer Vision - Algorithm 4.2 p109
+ */
 cv::Mat Initializer::ComputeH21(const vector<cv::Point2f> &vP1, const vector<cv::Point2f> &vP2)
 {
     const int N = vP1.size();
@@ -297,16 +319,18 @@ cv::Mat Initializer::ComputeH21(const vector<cv::Point2f> &vP1, const vector<cv:
     return vt.row(8).reshape(0, 3); // v的最后一列
 }
 
-// 从特征点匹配求fundamental matrix（normalized 8点法）
-// Algorithm 11.1 in Multiple View Geometry in Computer Vision. p282
-
-// 中文版 p191:
 // x'Fx = 0
 // ---> Af = 0
 // A = | x'x x'y x' y'x y'y y' x y 1 |, f = | f1 f2 f3 f4 f5 f6 f7 f8 f9 |
-
 // SVD to solve the Af = 0
 // result: Solution is the eigenvector corresponding to smallest eigenvalue of A'A
+/**
+ * @brief 从特征点匹配求fundamental matrix（normalized 8点法）
+ * @param  vP1 归一化后的点, in reference frame
+ * @param  vP2 归一化后的点, in current frame
+ * @return     基础矩阵
+ * @see        Multiple View Geometry in Computer Vision - Algorithm 11.1 p282 (中文版 p191)
+ */
 cv::Mat Initializer::ComputeF21(const vector<cv::Point2f> &vP1,const vector<cv::Point2f> &vP2)
 {
     const int N = vP1.size();
@@ -344,10 +368,14 @@ cv::Mat Initializer::ComputeF21(const vector<cv::Point2f> &vP1,const vector<cv::
     return  u*cv::Mat::diag(w)*vt;
 }
 
-// 对给定的homography matrix打分
-// IV. AUTOMATIC MAP INITIALIZATION （2） in Author's paper
-// symmetric transfer errors: 4.2.2 Geometric distance in Multiple View Geometry in Computer Vision.
-// model selection 4.7.1 RANSAC in Multiple View Geometry in Computer Vision
+/**
+ * @brief 对给定的homography matrix打分
+ * 
+ * @see
+ * - Author's paper - IV. AUTOMATIC MAP INITIALIZATION （2）
+ * - Multiple View Geometry in Computer Vision - symmetric transfer errors: 4.2.2 Geometric distance
+ * - Multiple View Geometry in Computer Vision - model selection 4.7.1 RANSAC
+ */
 float Initializer::CheckHomography(const cv::Mat &H21, const cv::Mat &H12, vector<bool> &vbMatchesInliers, float sigma)
 {   
     const int N = mvMatches12.size();
@@ -435,12 +463,14 @@ float Initializer::CheckHomography(const cv::Mat &H21, const cv::Mat &H12, vecto
     return score;
 }
 
-// 对给定的fundamental matrix打分
-// IV. AUTOMATIC MAP INITIALIZATION （2） in Author's paper
-// symmetric transfer errors: 
-//      4.2.2 Geometric distance in Multiple View Geometry in Computer Vision.
-// model selection 
-//      4.7.1 RANSAC in Multiple View Geometry in Computer Vision
+/**
+ * @brief 对给定的fundamental matrix打分
+ * 
+ * @see
+ * - Author's paper - IV. AUTOMATIC MAP INITIALIZATION （2）
+ * - Multiple View Geometry in Computer Vision - symmetric transfer errors: 4.2.2 Geometric distance
+ * - Multiple View Geometry in Computer Vision - model selection 4.7.1 RANSAC
+ */
 float Initializer::CheckFundamental(const cv::Mat &F21, vector<bool> &vbMatchesInliers, float sigma)
 {
     const int N = mvMatches12.size();
@@ -522,17 +552,21 @@ float Initializer::CheckFundamental(const cv::Mat &F21, vector<bool> &vbMatchesI
     return score;
 }
 
-// 从F恢复R t
-// 参考文献：
-// Result 9.19 in Multiple View Geometry in Computer Vision
-// 度量重构
-// 1 由Fundamental矩阵结合相机内参K，得到Essential矩阵: E = trans(k')Fk
-// 2 SVD分解得到R t: 
-//                            |0 -1 0|
-//   E = U Sigma V'   let W = |1  0 0|
-//                            |0  0 1|
-//   get 4 solutions E = [R|t] R1 = UWV' R2 = UW'V' T1 = U3 T2 = -U3
-// 3 进行cheirality check, 从四个解中找出最合适的解
+
+//                          |0 -1 0|
+// E = U Sigma V'   let W = |1  0 0|
+//                          |0  0 1|
+// get 4 solutions E = [R|t]
+// R1 = UWV' R2 = UW'V' T1 = U3 T2 = -U3
+/**
+ * @brief 从F恢复R t
+ * 
+ * 1. 由Fundamental矩阵结合相机内参K，得到Essential矩阵: \f$ E = k'^T F k \f$
+ * 2. SVD分解得到R t
+ * 3. 进行cheirality check, 从四个解中找出最合适的解
+ * 
+ * @see Multiple View Geometry in Computer Vision - Result 9.19 p259
+ */
 bool Initializer::ReconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv::Mat &K,
                             cv::Mat &R21, cv::Mat &t21, vector<cv::Point3f> &vP3D, vector<bool> &vbTriangulated, float minParallax, int minTriangulated)
 {
@@ -635,10 +669,13 @@ bool Initializer::ReconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv:
     return false;
 }
 
-// 从H恢复R t
-// 参考文献：
-// Faugeras et al, Motion and structure from motion in a piecewise planar environment. International Journal of Pattern Recognition and Artificial Intelligence, 1988.
-// Paper:Deeper understanding of the homography decomposition for vision-based control
+/**
+ * @brief 从H恢复R t
+ *
+ * @see
+ * - Faugeras et al, Motion and structure from motion in a piecewise planar environment. International Journal of Pattern Recognition and Artificial Intelligence, 1988.
+ * - Deeper understanding of the homography decomposition for vision-based control
+ */
 bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv::Mat &K,
                       cv::Mat &R21, cv::Mat &t21, vector<cv::Point3f> &vP3D, vector<bool> &vbTriangulated, float minParallax, int minTriangulated)
 {
@@ -801,14 +838,14 @@ bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv:
     return false;
 }
 
-// 给定投影矩阵P1,P2和图像上的点kp1,kp2，从而恢复3D坐标
-// 12.2 Linear triangulation methods in Multiple View Geometry in Computer Vision. p312
+
 // Trianularization: 已知匹配特征点对{x x'} 和 各自相机矩阵{P P'}, 估计三维点 X
 // x' = P'X  x = PX
-//                                              |X|
-//                      |x|     |p1 p2  p3  p4 ||Y|     |x|    |--p0--||.|
-// 它们都属于 x = aPX模型，|y| = a |p5 p6  p7  p8 ||Z| ===>|y| = a|--p1--||X|
-//                      |z|     |p9 p10 p11 p12||1|     |z|    |--p2--||.|
+// 它们都属于 x = aPX模型
+//                         |X|
+// |x|     |p1 p2  p3  p4 ||Y|     |x|    |--p0--||.|
+// |y| = a |p5 p6  p7  p8 ||Z| ===>|y| = a|--p1--||X|
+// |z|     |p9 p10 p11 p12||1|     |z|    |--p2--||.|
 // 采用DLT的方法：x叉乘PX = 0
 // |yp2 -  p1|     |0|
 // |p0 -  xp2| X = |0| 
@@ -817,6 +854,16 @@ bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv:
 // two points: |p0    -  xp2 | X = |0| ===> AX = 0
 //             |y'p2' -  p1' |     |0|
 //             |p0'   - x'p2'|     |0|
+/**
+ * @brief 给定投影矩阵P1,P2和图像上的点kp1,kp2，从而恢复3D坐标
+ *
+ * @param kp1 特征点, in reference frame
+ * @param kp2 特征点, in current frame
+ * @param P1  投影矩阵P1
+ * @param P2  投影矩阵P２
+ * @param x3D 三维点
+ * @see       Multiple View Geometry in Computer Vision - 12.2 Linear triangulation methods p312
+ */
 void Initializer::Triangulate(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const cv::Mat &P1, const cv::Mat &P2, cv::Mat &x3D)
 {
     cv::Mat A(4,4,CV_32F);
@@ -832,9 +879,16 @@ void Initializer::Triangulate(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, 
     x3D = x3D.rowRange(0,3)/x3D.at<float>(3);
 }
 
-// 归一化特征点到同一尺度（作为normalize DLT的输入）
-// [x' y' 1]' = T * [x y 1]'
-// 归一化后x', y'的均值为0，sum(x_i'-0)=1，sum(y_i'-0)=1
+/**
+ * ＠brief 归一化特征点到同一尺度（作为normalize DLT的输入）
+ *
+ * [x' y' 1]' = T * [x y 1]' \n
+ * 归一化后x', y'的均值为0，sum(x_i'-0)=1，sum(y_i'-0)=1
+ * 
+ * @param vKeys             特征点在图像上的坐标
+ * @param vNormalizedPoints 特征点归一化后的坐标
+ * @param T                 将特征点归一化的矩阵
+ */
 void Initializer::Normalize(const vector<cv::KeyPoint> &vKeys, vector<cv::Point2f> &vNormalizedPoints, cv::Mat &T)
 {
     float meanX = 0;
@@ -883,7 +937,9 @@ void Initializer::Normalize(const vector<cv::KeyPoint> &vKeys, vector<cv::Point2
     T.at<float>(1,2) = -meanY*sY;
 }
 
-
+/**
+ * @brief 进行cheirality check，从而进一步找出F分解后最合适的解
+ */
 int Initializer::CheckRT(const cv::Mat &R, const cv::Mat &t, const vector<cv::KeyPoint> &vKeys1, const vector<cv::KeyPoint> &vKeys2,
                        const vector<Match> &vMatches12, vector<bool> &vbMatchesInliers,
                        const cv::Mat &K, vector<cv::Point3f> &vP3D, float th2, vector<bool> &vbGood, float &parallax)
@@ -995,8 +1051,17 @@ int Initializer::CheckRT(const cv::Mat &R, const cv::Mat &t, const vector<cv::Ke
     return nGood;
 }
 
-// 分解E，得到t和R1,R2
-// Result 9.19 in Multiple View Geometry in Computer Vision p259
+/**
+ * @brief 分解Essential矩阵
+ * 
+ * F矩阵通过结合内参可以得到Essential矩阵，分解E矩阵将得到4组解 \n
+ * 这4组解分别为[R1,t],[R1,-t],[R2,t],[R2,-t]
+ * @param E  Essential Matrix
+ * @param R1 Rotation Matrix 1
+ * @param R2 Rotation Matrix 2
+ * @param t  Translation
+ * @see Multiple View Geometry in Computer Vision - Result 9.19 p259
+ */
 void Initializer::DecomposeE(const cv::Mat &E, cv::Mat &R1, cv::Mat &R2, cv::Mat &t)
 {
     cv::Mat u,w,vt;
