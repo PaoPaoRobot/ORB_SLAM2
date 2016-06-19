@@ -28,6 +28,9 @@ namespace ORB_SLAM2
 {
 
 // THIS IS THE INITIALIZER FOR MONOCULAR SLAM. NOT USED IN THE STEREO OR RGBD CASE.
+/**
+ * @brief 单目SLAM初始化相关，双目和RGBD不会使用这个类
+ */
 class Initializer
 {
     typedef pair<int,int> Match;
@@ -86,34 +89,27 @@ private:
 
 
     // Keypoints from Reference Frame (Frame 1)
-    // 存储Reference Frame中的特征点
-    vector<cv::KeyPoint> mvKeys1;
+    vector<cv::KeyPoint> mvKeys1; ///< 存储Reference Frame中的特征点
 
     // Keypoints from Current Frame (Frame 2)
-    // 存储Current Frame中的特征点
-    vector<cv::KeyPoint> mvKeys2;
+    vector<cv::KeyPoint> mvKeys2; ///< 存储Current Frame中的特征点
 
     // Current Matches from Reference to Current
     // Reference Frame: 1, Current Frame: 2
-    // Match的数据结构是pair,mvMatches12只记录Reference到Current匹配上的特征点对
-    vector<Match> mvMatches12;
-    // 记录Reference Frame的每个特征点在Current Frame是否有匹配的特征点
-    vector<bool> mvbMatched1;
+    vector<Match> mvMatches12; ///< Match的数据结构是pair,mvMatches12只记录Reference到Current匹配上的特征点对
+    vector<bool> mvbMatched1; ///< 记录Reference Frame的每个特征点在Current Frame是否有匹配的特征点
 
     // Calibration
-    // 相机内参
-    cv::Mat mK;
+    cv::Mat mK; ///< 相机内参
 
     // Standard Deviation and Variance
-    float mSigma, mSigma2;
+    float mSigma, mSigma2; ///< 测量误差
 
     // Ransac max iterations
-    // 算Fundamental和Homography矩阵时RANSAC迭代次数
-    int mMaxIterations;
+    int mMaxIterations; ///< 算Fundamental和Homography矩阵时RANSAC迭代次数
 
     // Ransac sets
-    // 二维容器，外层容器的大小为迭代次数，内层容器大小为每次迭代算H或F矩阵需要的点
-    vector<vector<size_t> > mvSets;   
+    vector<vector<size_t> > mvSets; ///< 二维容器，外层容器的大小为迭代次数，内层容器大小为每次迭代算H或F矩阵需要的点
 
 };
 

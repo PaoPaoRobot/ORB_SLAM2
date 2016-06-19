@@ -83,10 +83,10 @@ public:
     int PredictScale(const float &currentDist, const float &logScaleFactor);
 
 public:
-    long unsigned int mnId;
+    long unsigned int mnId; ///< Global ID for MapPoint
     static long unsigned int nNextId;
-    long int mnFirstKFid;
-    long int mnFirstFrame;
+    long int mnFirstKFid; ///< 创建该MapPoint的关键帧ID
+    long int mnFirstFrame; ///< 创建该MapPoint的帧ID（即每一关键帧有一个帧ID）
     int nObs;
 
     // Variables used by the tracking

@@ -31,6 +31,9 @@ mutex MapPoint::mGlobalMutex;
 
 /**
  * @brief 给定坐标与keyframe构造MapPoint
+ *
+ * 双目：StereoInitialization()，CreateNewKeyFrame()，LocalMapping::CreateNewMapPoints()
+ * 单目：CreateInitialMapMonocular()，LocalMapping::CreateNewMapPoints()
  * @param Pos    MapPoint的坐标（wrt世界坐标系）
  * @param pRefKF KeyFrame
  * @param pMap   Map
@@ -51,6 +54,8 @@ MapPoint::MapPoint(const cv::Mat &Pos, KeyFrame *pRefKF, Map* pMap):
 
 /**
  * @brief 给定坐标与frame构造MapPoint
+ *
+ * 双目：UpdateLastFrame()
  * @param Pos    MapPoint的坐标（wrt世界坐标系）
  * @param pMap   Map
  * @param pFrame Frame
@@ -148,6 +153,7 @@ void MapPoint::EraseObservation(KeyFrame* pKF)
                 mpRefKF=mObservations.begin()->first;
 
             // If only 2 observations or less, discard point
+            // 当观测到该点的相机数目少于2时，丢弃该点
             if(nObs<=2)
                 bBad=true;
         }

@@ -292,6 +292,7 @@ void Frame::UpdatePoseMatrices()
  * @param  pMP             MapPoint
  * @param  viewingCosLimit 视角和平均视角的方向阈值
  * @return                 true if is in view
+ * @see SearchLocalPoints()
  */
 bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
 {
