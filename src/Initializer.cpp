@@ -561,6 +561,7 @@ float Initializer::CheckFundamental(const cv::Mat &F21, vector<bool> &vbMatchesI
 /**
  * @brief 从F恢复R t
  * 
+ * 度量重构
  * 1. 由Fundamental矩阵结合相机内参K，得到Essential矩阵: \f$ E = k'^T F k \f$
  * 2. SVD分解得到R t
  * 3. 进行cheirality check, 从四个解中找出最合适的解

@@ -690,6 +690,7 @@ cv::Mat KeyFrame::UnprojectStereo(int i)
     const float z = mvDepth[i];
     if(z>0)
     {
+        // 由2维图像反投影到相机坐标系
         const float u = mvKeys[i].pt.x;
         const float v = mvKeys[i].pt.y;
         const float x = (u-cx)*z*invfx;
@@ -697,6 +698,9 @@ cv::Mat KeyFrame::UnprojectStereo(int i)
         cv::Mat x3Dc = (cv::Mat_<float>(3,1) << x, y, z);
 
         unique_lock<mutex> lock(mMutexPose);
+	// 由相机坐标系转换到世界坐标系
+	// Twc为相机坐标系到世界坐标系的变换矩阵
+	// Twc.rosRange(0,3).colRange(0,3)取Twc矩阵的前3行与前3列
         return Twc.rowRange(0,3).colRange(0,3)*x3Dc+Twc.rowRange(0,3).col(3);
     }
     else
