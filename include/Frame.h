@@ -140,11 +140,17 @@ public:
     // Vector of keypoints (original for visualization) and undistorted (actually used by the system).
     // In the stereo case, mvKeysUn is redundant as images must be rectified.
     // In the RGB-D case, RGB images can be distorted.
+    // mvKeys:原始左图像提取出的特征点（未校正）
+    // mvKeysRight:原始右图像提取出的特征点（未校正）
+    // mvKeysUn:校正mvKeys后的特征点，对于双目摄像头，一般得到的图像都是校正好的，再校正一次有点多余
     std::vector<cv::KeyPoint> mvKeys, mvKeysRight;
     std::vector<cv::KeyPoint> mvKeysUn;
 
     // Corresponding stereo coordinate and depth for each keypoint.
     // "Monocular" keypoints have a negative value.
+    // 对于双目，mvuRight存储了左目像素点在右目中的对应点的横坐标
+    // mvDepth对应的深度
+    // 单目摄像头，这两个容器中存的都是-1
     std::vector<float> mvuRight;
     std::vector<float> mvDepth;
 
@@ -153,43 +159,46 @@ public:
     DBoW2::FeatureVector mFeatVec;
 
     // ORB descriptor, each row associated to a keypoint.
+    // 左目摄像头和右目摄像头特征点对应的描述子
     cv::Mat mDescriptors, mDescriptorsRight;
 
     // MapPoints associated to keypoints, NULL pointer if no association.
+    // 每个特征点对应的MapPoint
     std::vector<MapPoint*> mvpMapPoints;
 
     // Flag to identify outlier associations.
-    // NOTE: 什么东西的outlier?
+    // 观测不到Map中的3D点
     std::vector<bool> mvbOutlier;
 
     // Keypoints are assigned to cells in a grid to reduce matching complexity when projecting MapPoints.
     static float mfGridElementWidthInv;
     static float mfGridElementHeightInv;
-    // 这是grid，但grid是什么？
+    // 这是grid，将图像分成格子，保证提取的特征点比较均匀
     // #define FRAME_GRID_ROWS 48
     // #define FRAME_GRID_COLS 64
     std::vector<std::size_t> mGrid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
     // Camera pose.
-    cv::Mat mTcw; ///< 相机姿态
+    cv::Mat mTcw; ///< 相机姿态 世界坐标系到相机坐标坐标系的变换矩阵
 
     // Current and Next Frame id.
     static long unsigned int nNextId; ///< Next Frame id.
     long unsigned int mnId; ///< Current Frame id.
 
     // Reference Keyframe.
-    KeyFrame* mpReferenceKF;
+    KeyFrame* mpReferenceKF;//指针，指向参考关键帧
 
     // Scale pyramid info.
-    int mnScaleLevels;
-    float mfScaleFactor;
-    float mfLogScaleFactor;
+    int mnScaleLevels;//图像提金字塔的层数
+    float mfScaleFactor;//图像提金字塔的尺度因子
+    float mfLogScaleFactor;//
     vector<float> mvScaleFactors;
     vector<float> mvInvScaleFactors;
     vector<float> mvLevelSigma2;
     vector<float> mvInvLevelSigma2;
 
     // Undistorted Image Bounds (computed once).
+    // 用于确定画格子时的边界
     static float mnMinX;
     static float mnMaxX;
     static float mnMinY;
@@ -215,7 +224,7 @@ private:
     cv::Mat mRcw; ///< Rotation from world to camera
     cv::Mat mtcw; ///< Translation from world to camera
     cv::Mat mRwc; ///< Rotation from camera to world
-    cv::Mat mOw;  ///< mtwc,Translation from camera to world 即相机在世界坐标系的位置
+    cv::Mat mOw;  ///< mtwc,Translation from camera to world
 };
 
 }// namespace ORB_SLAM

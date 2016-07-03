@@ -343,14 +343,15 @@ MapPoint* KeyFrame::GetMapPoint(const size_t &idx)
 /**
  * @brief 更新图的连接
  * 
- * 1. 首先获得该关键帧的所有3d点，统计观测到这些3d点的所有关键帧
- * 2. 对每一个找到的关键帧，建立一条边，边的权重是该关键帧与当前关键帧公共3d点的个数。
- *    并且该权重必须大于一个阈值，如果没有超过该阈值的权重，那么就只保留权重最大的边。
+ * 1. 首先获得该关键帧的所有3d点，统计观测到这些3d点的每个关键与其它所有关键帧之间的共视程度，存入KFcounter
+ *    对每一个找到的关键帧，建立一条边，边的权重是该关键帧与当前关键帧公共3d点的个数。
+ * 2. 并且该权重必须大于一个阈值，如果没有超过该阈值的权重，那么就只保留权重最大的边（与其它关键帧的共视程度比较高）存入vPairs。
  * 3. 对这些连接按照权重从大到小进行排序，以方便将来的处理
- * 4. 更新完covisibility图之后，还需要更新生成树，连接权重最大的边，类似于最大生成树
+ *    更新完covisibility图之后，如果没有初始化过，则初始化为连接权重最大的边（与其它关键帧共视程度最高的那个关键帧），类似于最大生成树
  */
 void KeyFrame::UpdateConnections()
 {
+//===============1==================================
     map<KeyFrame*,int> KFcounter; // 关键帧-权重，权重为关键帧与当前关键帧公共3d点的个数
 
     vector<MapPoint*> vpMP;
@@ -363,7 +364,8 @@ void KeyFrame::UpdateConnections()
 
     //For all map points in keyframe check in which other keyframes are they seen
     //Increase counter for those keyframes
-    // 统计观测到这些3d点的所有关键帧
+    // 通过3D点间接统计可以观测到这些3D点的所有关键帧之间的共视程度
+    // 即统计每一个关键帧都有多少关键帧与它存在共视关系，统计结果放在KFcounter
     for(vector<MapPoint*>::iterator vit=vpMP.begin(), vend=vpMP.end(); vit!=vend; vit++)
     {
         MapPoint* pMP = *vit;
@@ -374,10 +376,12 @@ void KeyFrame::UpdateConnections()
         if(pMP->isBad())
             continue;
 
+        // 对于每一个3d MapPoint点,observations记录了可以观测到该3D的所有关键帧
         map<KeyFrame*,size_t> observations = pMP->GetObservations();
 
         for(map<KeyFrame*,size_t>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
         {
+            // 除去自身，自己与自己不算共视
             if(mit->first->mnId==mnId)
                 continue;
             KFcounter[mit->first]++;
@@ -394,30 +398,39 @@ void KeyFrame::UpdateConnections()
     KeyFrame* pKFmax=NULL;
     int th = 15;
 
+//===============2==================================
+    // vPairs记录与其它关键帧共视帧数大于th的关键帧
+    // pair<int,KeyFrame*>将关键帧的权重写在前面，关键帧写在后面是为了后面排序？
     vector<pair<int,KeyFrame*> > vPairs;
     vPairs.reserve(KFcounter.size());
     for(map<KeyFrame*,int>::iterator mit=KFcounter.begin(), mend=KFcounter.end(); mit!=mend; mit++)
     {
+        // 找到对应权重最大的关键帧
+        // 找到与其它关键帧共视程度最高的关键帧
         if(mit->second>nmax)
         {
             nmax=mit->second;
-            pKFmax=mit->first; // 找到对应权重最大的关键帧
+            pKFmax=mit->first; 
         }
         if(mit->second>=th)
         {
             // 对应权重需要大于阈值，对这些关键帧建立连接
             vPairs.push_back(make_pair(mit->second,mit->first));
+            // 更新KFcounter中该关键帧的mConnectedKeyFrameWeights
             (mit->first)->AddConnection(this,mit->second);
         }
     }
 
-    // 如果没有超过阈值的权重，则对权重最大的关键帧建立连接
+    // 如果每个关键帧与它共视的关键帧的个数都少于th，
+    // 那就只更新与其它关键帧共视程度最高的关键帧的mConnectedKeyFrameWeights
+    // 这是对之前th这个阈值可能过高的一个补丁
     if(vPairs.empty())
     {
         vPairs.push_back(make_pair(nmax,pKFmax));
         pKFmax->AddConnection(this,nmax);
     }
 
+    // vPairs里存的都是相互共视程度比较高的关键帧和共视权重
     sort(vPairs.begin(),vPairs.end());
     list<KeyFrame*> lKFs;
     list<int> lWs;
@@ -427,11 +440,12 @@ void KeyFrame::UpdateConnections()
         lWs.push_front(vPairs[i].first);
     }
 
+//===============3==================================
     {
         unique_lock<mutex> lockCon(mMutexConnections);
 
         // mspConnectedKeyFrames = spConnectedKeyFrames;
-        // 更新图的连接
+        // 更新图的连接权重
         mConnectedKeyFrameWeights = KFcounter;
         mvpOrderedConnectedKeyFrames = vector<KeyFrame*>(lKFs.begin(),lKFs.end());
         mvOrderedWeights = vector<int>(lWs.begin(), lWs.end());
@@ -439,7 +453,9 @@ void KeyFrame::UpdateConnections()
         // 更新生成树的连接
         if(mbFirstConnection && mnId!=0)
         {
+            // 初始化该关键帧的父关键帧为共视程度最高的那个关键帧
             mpParent = mvpOrderedConnectedKeyFrames.front();
+            // 建立双向连接关系
             mpParent->AddChild(this);
             mbFirstConnection = false;
         }
@@ -698,9 +714,9 @@ cv::Mat KeyFrame::UnprojectStereo(int i)
         cv::Mat x3Dc = (cv::Mat_<float>(3,1) << x, y, z);
 
         unique_lock<mutex> lock(mMutexPose);
-	// 由相机坐标系转换到世界坐标系
-	// Twc为相机坐标系到世界坐标系的变换矩阵
-	// Twc.rosRange(0,3).colRange(0,3)取Twc矩阵的前3行与前3列
+        // 由相机坐标系转换到世界坐标系
+        // Twc为相机坐标系到世界坐标系的变换矩阵
+        // Twc.rosRange(0,3).colRange(0,3)取Twc矩阵的前3行与前3列
         return Twc.rowRange(0,3).colRange(0,3)*x3Dc+Twc.rowRange(0,3).col(3);
     }
     else

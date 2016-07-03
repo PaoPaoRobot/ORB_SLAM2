@@ -327,6 +327,7 @@ void MapPoint::ComputeDistinctiveDescriptors()
     int BestIdx = 0;
     for(size_t i=0;i<N;i++)
     {
+        // 第i个描述子到其它所有所有描述子之间的距离
         //vector<int> vDists(Distances[i],Distances[i]+N);
 		vector<int> vDists(Distances[i].begin(), Distances[i].end());
 		sort(vDists.begin(), vDists.end());
@@ -346,6 +347,8 @@ void MapPoint::ComputeDistinctiveDescriptors()
         unique_lock<mutex> lock(mMutexFeatures);
         
         // 最好的描述子，该描述子相对于其他描述子有最小的距离中值
+        // 简化来讲，中值代表了这个描述子到其它描述子的平均距离
+        // 最好的描述子就是和其它描述子的平均距离最小
         mDescriptor = vDescriptors[BestIdx].clone();       
     }
 }
@@ -408,7 +411,7 @@ void MapPoint::UpdateNormalAndDepth()
         KeyFrame* pKF = mit->first;
         cv::Mat Owi = pKF->GetCameraCenter();
         cv::Mat normali = mWorldPos - Owi;
-        normal = normal + normali/cv::norm(normali); // 对所有关键帧对该点的观测方向进行求和
+        normal = normal + normali/cv::norm(normali); // 对所有关键帧对该点的观测方向归一化为单位向量进行求和
         n++;
     } 
 
@@ -416,7 +419,7 @@ void MapPoint::UpdateNormalAndDepth()
     const float dist = cv::norm(PC); // 该点到参考关键帧的距离
     const int level = pRefKF->mvKeysUn[observations[pRefKF]].octave;
     const float levelScaleFactor =  pRefKF->mvScaleFactors[level];
-    const int nLevels = pRefKF->mnScaleLevels;
+    const int nLevels = pRefKF->mnScaleLevels; // 金字塔层数
 
     {
         unique_lock<mutex> lock3(mMutexPos);
