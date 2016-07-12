@@ -22,9 +22,15 @@ if(MSVC90)
   message(STATUS "Disabling memory alignment for MSVC8")
 endif(MSVC90)
 
+IF(WIN32)
+	add_definitions(-DNOMINMAX)
+	add_definitions(-DWINDOWS)
+	add_definitions(-DG2O_EXPORT)
+ENDIF(WIN32)
+
 # Set the output directory for the build executables and libraries
 IF(WIN32)
-  SET(g2o_LIBRARY_OUTPUT_DIRECTORY ${g2o_SOURCE_DIR}/bin CACHE PATH "Target for the libraries")
+  SET(g2o_LIBRARY_OUTPUT_DIRECTORY ${g2o_SOURCE_DIR}/lib CACHE PATH "Target for the libraries")
 ELSE(WIN32)
   SET(g2o_LIBRARY_OUTPUT_DIRECTORY ${g2o_SOURCE_DIR}/lib CACHE PATH "Target for the libraries")
 ENDIF(WIN32)
@@ -43,8 +49,8 @@ IF(UNIX)
 ENDIF(UNIX)
 
 # For building the CHOLMOD / CSPARSE solvers
-FIND_PACKAGE(BLAS REQUIRED)
-FIND_PACKAGE(LAPACK REQUIRED)
+FIND_PACKAGE(BLAS)
+FIND_PACKAGE(LAPACK)
 
 # Eigen library parallelise itself, though, presumably due to performance issues
 # OPENMP is experimental. We experienced some slowdown with it
@@ -62,8 +68,8 @@ SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native")
 SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -march=native") 
 
 # activate warnings !!!
-SET(g2o_C_FLAGS "${g2o_C_FLAGS} -Wall -W")
-SET(g2o_CXX_FLAGS "${g2o_CXX_FLAGS} -Wall -W")
+SET(g2o_C_FLAGS "${g2o_C_FLAGS} -Wall")
+SET(g2o_CXX_FLAGS "${g2o_CXX_FLAGS} -Wall")
 
 # specifying compiler flags
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${g2o_CXX_FLAGS}")

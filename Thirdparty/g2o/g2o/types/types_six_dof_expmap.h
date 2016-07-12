@@ -24,9 +24,9 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// Modified by RaÃºl Mur Artal (2014)
+// Modified by Ra¨²l Mur Artal (2014)
 // Added EdgeSE3ProjectXYZ (project using focal_length in x,y directions)
-// Modified by RaÃºl Mur Artal (2016)
+// Modified by Ra¨²l Mur Artal (2016)
 // Added EdgeStereoSE3ProjectXYZ (project using focal_length in x,y directions)
 // Added EdgeSE3ProjectXYZOnlyPose (unary edge to optimize only the camera pose)
 // Added EdgeStereoSE3ProjectXYZOnlyPose (unary edge to optimize only the camera pose)
@@ -73,9 +73,9 @@ public:
   /**
    * \f$ T \leftarrow exp(\hat{\xi})T \f$
    * @param update_ \f$ \xi \f$ = [w1 w2 w3 v1 v2 v3]
-   * @note è¿™é‡Œå¢é‡ä¹˜åœ¨å·¦è¾¹
+   * @note ÕâÀïÔöÁ¿³ËÔÚ×ó±ß
    * @see jlblanco2010geometry3d_techrep.pdf 10.2 \n
-   *      å·¦ä¹˜å³ä¹˜åªæ˜¯æ¯æ¬¡æ›´æ–°å¾—åˆ°çš„å¢é‡çš„ç¬¦å·æ˜¯ä¸ä¸€æ ·çš„,æœ€ç»ˆç»“æœç›¸åŒ
+   *      ×ó³ËÓÒ³ËÖ»ÊÇÃ¿´Î¸üĞÂµÃµ½µÄÔöÁ¿µÄ·ûºÅÊÇ²»Ò»ÑùµÄ,×îÖÕ½á¹ûÏàÍ¬
    */
   virtual void oplusImpl(const double* update_)  {
     Eigen::Map<const Vector6d> update(update_);
@@ -97,7 +97,7 @@ public:
   bool write(std::ostream& os) const;
 
   /**
-   * é‡æŠ•å½±è¯¯å·®
+   * ÖØÍ¶Ó°Îó²î
    */
   void computeError()  {
     const VertexSE3Expmap* v1 = static_cast<const VertexSE3Expmap*>(_vertices[1]); // T
@@ -107,7 +107,7 @@ public:
   }
 
   /**
-   * æ£€éªŒ \f$ TX_w \f$çš„Zæ˜¯å¦å¤§äº0
+   * ¼ìÑé \f$ TX_w \f$µÄZÊÇ·ñ´óÓÚ0
    * @return true if the depth is Positive
    */
   bool isDepthPositive() {
@@ -117,18 +117,18 @@ public:
   }
     
   /**
-   * è¯¯å·®å‡½æ•°å¯¹[X Y Z]å’Œå¢é‡[w1 w2 w3 v1 v2 v3]æ±‚é›…å…‹æ¯”çŸ©é˜µ \n
+   * Îó²îº¯Êı¶Ô[X Y Z]ºÍÔöÁ¿[w1 w2 w3 v1 v2 v3]ÇóÑÅ¿Ë±È¾ØÕó \n
    * \f$Ji_{2\times3} = \frac{\partial [obs - \Pi(exp(\hat{\xi}) T X_w)]}{\partial X_w} \f$ \n
    * \f$Jj_{2\times6} = \frac{\partial [obs - \Pi(exp(\hat{\xi}) T X_w)]}{\partial \xi} \f$ \n
-   * @note _jacobianOplusXiï¼Œ_jacobianOplusXj
-   * @see é‡‡ç”¨é“¾å¼æ³•åˆ™æ±‚è§£, å‚è€ƒ(æ³¨æ„ä»¥ä¸‹å‚è€ƒçš„å¢é‡å®šä¹‰ä¸º[v1 v2 v3 w1 w2 w3])
-   * - jlblanco2010geometry3d_techrep.pdf p56 (A.2) æ¨è
+   * @note _jacobianOplusXi£¬_jacobianOplusXj
+   * @see ²ÉÓÃÁ´Ê½·¨ÔòÇó½â, ²Î¿¼(×¢ÒâÒÔÏÂ²Î¿¼µÄÔöÁ¿¶¨ÒåÎª[v1 v2 v3 w1 w2 w3])
+   * - jlblanco2010geometry3d_techrep.pdf p56 (A.2) ÍÆ¼ö
    * - strasdat_thesis_2012.pdf p194 (B.4)
    */
   virtual void linearizeOplus();
 
   /**
-   * å°†XwæŠ•å½±åˆ°camçš„å›¾åƒåæ ‡ç³» \n
+   * ½«XwÍ¶Ó°µ½camµÄÍ¼Ïñ×ø±êÏµ \n
    * \f$ u = \frac{f_x X}{Z} + c_x \f$ \n
    * \f$ v = \frac{f_y Y}{Z} + c_v \f$ \n
    * @param  trans_xyz [X Y Z]
@@ -153,7 +153,7 @@ public:
   bool write(std::ostream& os) const;
 
   /**
-   * é‡æŠ•å½±è¯¯å·®
+   * ÖØÍ¶Ó°Îó²î
    */
   void computeError()  {
     const VertexSE3Expmap* v1 = static_cast<const VertexSE3Expmap*>(_vertices[1]);
@@ -163,7 +163,7 @@ public:
   }
 
   /**
-   * æ£€éªŒ \f$ TX_w \f$çš„Zæ˜¯å¦å¤§äº0
+   * ¼ìÑé \f$ TX_w \f$µÄZÊÇ·ñ´óÓÚ0
    * @return true if the depth is Positive
    */
   bool isDepthPositive() {
@@ -173,18 +173,18 @@ public:
   }
 
   /**
-   * è¯¯å·®å‡½æ•°å¯¹[X Y Z]å’Œå¢é‡[w1 w2 w3 v1 v2 v3]æ±‚é›…å…‹æ¯”çŸ©é˜µ \n
+   * Îó²îº¯Êı¶Ô[X Y Z]ºÍÔöÁ¿[w1 w2 w3 v1 v2 v3]ÇóÑÅ¿Ë±È¾ØÕó \n
    * \f$Ji_{3\times3} = \frac{\partial [obs - \Pi(exp(\hat{\xi}) T X_w)]}{\partial X_w} \f$ \n
    * \f$Jj_{3\times6} = \frac{\partial [obs - \Pi(exp(\hat{\xi}) T X_w)]}{\partial \xi} \f$ \n
-   * @note _jacobianOplusXiï¼Œ_jacobianOplusXj
-   * @see é‡‡ç”¨é“¾å¼æ³•åˆ™æ±‚è§£, å‚è€ƒ(æ³¨æ„ä»¥ä¸‹å‚è€ƒçš„å¢é‡å®šä¹‰ä¸º[v1 v2 v3 w1 w2 w3])
-   * - jlblanco2010geometry3d_techrep.pdf p56 (A.2) æ¨è
+   * @note _jacobianOplusXi£¬_jacobianOplusXj
+   * @see ²ÉÓÃÁ´Ê½·¨ÔòÇó½â, ²Î¿¼(×¢ÒâÒÔÏÂ²Î¿¼µÄÔöÁ¿¶¨ÒåÎª[v1 v2 v3 w1 w2 w3])
+   * - jlblanco2010geometry3d_techrep.pdf p56 (A.2) ÍÆ¼ö
    * - strasdat_thesis_2012.pdf p194 (B.4)
    */
   virtual void linearizeOplus();
 
   /**
-   * å°†XwæŠ•å½±åˆ°camçš„å›¾åƒåæ ‡ç³» \n
+   * ½«XwÍ¶Ó°µ½camµÄÍ¼Ïñ×ø±êÏµ \n
    * \f$ ul = \frac{f_x X}{Z} + c_x \f$ \n
    * \f$ vl = \frac{f_y Y}{Z} + c_v \f$ \n
    * \f$ ur = \frac{f_x (X-b)}{Z} + c_x \f$ \n
@@ -194,14 +194,14 @@ public:
    */
   Vector3d cam_project(const Vector3d & trans_xyz, const float &bf) const;
 
-  double fx, fy, cx, cy, bf; ///< å†…å‚æ•°ï¼Œbf = b*f
+  double fx, fy, cx, cy, bf; ///< ÄÚ²ÎÊı£¬bf = b*f
 };
 
-// BaseUnaryEdge    è¯¥è¾¹åªæœ‰ä¸€ä¸ªé¡¶ç‚¹
-// 2, Vector2d      è¯¯å·®å‡½æ•°ç»“æœæ˜¯Vector2d,è‡ªç”±åº¦ä¸º2
-// VertexSE3Expmap  é¡¶ç‚¹ç±»å‹ä¸ºVertexSE3Expmap
-// _vertices[0]     è°ƒç”¨setVertex(), å…¶estimateä¸ºTcw,å³ä¸–ç•Œåæ ‡ç³»åœ¨ç›¸æœºåæ ‡ç³»çš„è¡¨ç¤º
-// _measurement     è°ƒç”¨setMeasurement, ä¸ºkeypointçš„u,våæ ‡
+// BaseUnaryEdge    ¸Ã±ßÖ»ÓĞÒ»¸ö¶¥µã
+// 2, Vector2d      Îó²îº¯Êı½á¹ûÊÇVector2d,×ÔÓÉ¶ÈÎª2
+// VertexSE3Expmap  ¶¥µãÀàĞÍÎªVertexSE3Expmap
+// _vertices[0]     µ÷ÓÃsetVertex(), ÆäestimateÎªTcw,¼´ÊÀ½ç×ø±êÏµÔÚÏà»ú×ø±êÏµµÄ±íÊ¾
+// _measurement     µ÷ÓÃsetMeasurement, ÎªkeypointµÄu,v×ø±ê
 /**
  * @brief NOTE uesd in Optimizer::PoseOptimization()
  */
@@ -216,7 +216,7 @@ public:
   bool write(std::ostream& os) const;
 
   /**
-   * é‡æŠ•å½±è¯¯å·®
+   * ÖØÍ¶Ó°Îó²î
    */
   void computeError()  {
     const VertexSE3Expmap* v1 = static_cast<const VertexSE3Expmap*>(_vertices[0]);
@@ -225,7 +225,7 @@ public:
   }
 
   /**
-   * æ£€éªŒ \f$ TX_w \f$çš„Zæ˜¯å¦å¤§äº0
+   * ¼ìÑé \f$ TX_w \f$µÄZÊÇ·ñ´óÓÚ0
    * @return true if the depth is Positive
    */
   bool isDepthPositive() {
@@ -234,17 +234,17 @@ public:
   }
 
   /**
-   * è¯¯å·®å‡½æ•°å¯¹å¢é‡[w1 w2 w3 v1 v2 v3]æ±‚é›…å…‹æ¯”çŸ©é˜µ\f$J_{2\times6}\f$
+   * Îó²îº¯Êı¶ÔÔöÁ¿[w1 w2 w3 v1 v2 v3]ÇóÑÅ¿Ë±È¾ØÕó\f$J_{2\times6}\f$
    * \f$ = \frac{\partial [obs - \Pi(exp(\hat{\xi}) T X_w)]}{\partial \xi} \f$
-   * @note _jacobianOplusXiï¼Œé›…å¯æ¯”çŸ©é˜µçš„æ­£è´Ÿå·æ²¡æœ‰å…³ç³»
-   * @see é‡‡ç”¨é“¾å¼æ³•åˆ™æ±‚è§£, å‚è€ƒ(æ³¨æ„ä»¥ä¸‹å‚è€ƒçš„å¢é‡å®šä¹‰ä¸º[v1 v2 v3 w1 w2 w3])
-   * - jlblanco2010geometry3d_techrep.pdf p56 (A.2) æ¨è
+   * @note _jacobianOplusXi£¬ÑÅ¿É±È¾ØÕóµÄÕı¸ººÅÃ»ÓĞ¹ØÏµ
+   * @see ²ÉÓÃÁ´Ê½·¨ÔòÇó½â, ²Î¿¼(×¢ÒâÒÔÏÂ²Î¿¼µÄÔöÁ¿¶¨ÒåÎª[v1 v2 v3 w1 w2 w3])
+   * - jlblanco2010geometry3d_techrep.pdf p56 (A.2) ÍÆ¼ö
    * - strasdat_thesis_2012.pdf p194 (B.4)
    */
   virtual void linearizeOplus();
 
   /**
-   * å°†XwæŠ•å½±åˆ°camçš„å›¾åƒåæ ‡ç³» \n
+   * ½«XwÍ¶Ó°µ½camµÄÍ¼Ïñ×ø±êÏµ \n
    * \f$ u = \frac{f_x X}{Z} + c_x \f$ \n
    * \f$ v = \frac{f_y Y}{Z} + c_v \f$ \n
    * @param  trans_xyz [X Y Z]
@@ -252,15 +252,15 @@ public:
    */
   Vector2d cam_project(const Vector3d & trans_xyz) const;
 
-  Vector3d Xw; ///< MapPointåœ¨ä¸–ç•Œåæ ‡ç³»çš„ä½ç½®
-  double fx, fy, cx, cy; ///< å†…å‚æ•°
+  Vector3d Xw; ///< MapPointÔÚÊÀ½ç×ø±êÏµµÄÎ»ÖÃ
+  double fx, fy, cx, cy; ///< ÄÚ²ÎÊı
 };
 
-// BaseUnaryEdge    è¯¥è¾¹åªæœ‰ä¸€ä¸ªé¡¶ç‚¹
-// 3, Vector3d      è¯¯å·®å‡½æ•°ç»“æœæ˜¯Vector3d,è‡ªç”±åº¦ä¸º3
-// VertexSE3Expmap  é¡¶ç‚¹ç±»å‹ä¸ºVertexSE3Expmap
-// _vertices[0]     è°ƒç”¨setVertex(), å…¶estimateä¸ºTcw,å³ä¸–ç•Œåæ ‡ç³»åœ¨ç›¸æœºåæ ‡ç³»çš„è¡¨ç¤º
-// _measurement     è°ƒç”¨setMeasurement, ä¸ºkeypointçš„ul,vl,uråæ ‡
+// BaseUnaryEdge    ¸Ã±ßÖ»ÓĞÒ»¸ö¶¥µã
+// 3, Vector3d      Îó²îº¯Êı½á¹ûÊÇVector3d,×ÔÓÉ¶ÈÎª3
+// VertexSE3Expmap  ¶¥µãÀàĞÍÎªVertexSE3Expmap
+// _vertices[0]     µ÷ÓÃsetVertex(), ÆäestimateÎªTcw,¼´ÊÀ½ç×ø±êÏµÔÚÏà»ú×ø±êÏµµÄ±íÊ¾
+// _measurement     µ÷ÓÃsetMeasurement, ÎªkeypointµÄul,vl,ur×ø±ê
 /**
  * @brief NOTE uesd in Optimizer::PoseOptimization()
  */
@@ -275,7 +275,7 @@ public:
   bool write(std::ostream& os) const;
 
   /**
-   * é‡æŠ•å½±è¯¯å·®
+   * ÖØÍ¶Ó°Îó²î
    */
   void computeError()  {
     const VertexSE3Expmap* v1 = static_cast<const VertexSE3Expmap*>(_vertices[0]);
@@ -284,7 +284,7 @@ public:
   }
 
   /**
-   * æ£€éªŒ \f$ TX_w \f$çš„Zæ˜¯å¦å¤§äº0
+   * ¼ìÑé \f$ TX_w \f$µÄZÊÇ·ñ´óÓÚ0
    * @return true if the depth is Positive
    */
   bool isDepthPositive() {
@@ -293,27 +293,27 @@ public:
   }
 
   /**
-   * è¯¯å·®å‡½æ•°å¯¹å¢é‡[w1 w2 w3 v1 v2 v3]æ±‚é›…å…‹æ¯”çŸ©é˜µ\f$J_{3\times6}\f$
+   * Îó²îº¯Êı¶ÔÔöÁ¿[w1 w2 w3 v1 v2 v3]ÇóÑÅ¿Ë±È¾ØÕó\f$J_{3\times6}\f$
    * \f$ = \frac{\partial [obs - \Pi(exp(\hat{\xi}) T X_w)]}{\partial \xi} \f$
-   * @note _jacobianOplusXiï¼Œé›…å¯æ¯”çŸ©é˜µçš„æ­£è´Ÿå·æ²¡æœ‰å…³ç³»
-   * @see é‡‡ç”¨é“¾å¼æ³•åˆ™æ±‚è§£, å‚è€ƒ(æ³¨æ„ä»¥ä¸‹å‚è€ƒçš„å¢é‡å®šä¹‰ä¸º[v1 v2 v3 w1 w2 w3])
-   * - jlblanco2010geometry3d_techrep.pdf p56 (A.2) æ¨è
+   * @note _jacobianOplusXi£¬ÑÅ¿É±È¾ØÕóµÄÕı¸ººÅÃ»ÓĞ¹ØÏµ
+   * @see ²ÉÓÃÁ´Ê½·¨ÔòÇó½â, ²Î¿¼(×¢ÒâÒÔÏÂ²Î¿¼µÄÔöÁ¿¶¨ÒåÎª[v1 v2 v3 w1 w2 w3])
+   * - jlblanco2010geometry3d_techrep.pdf p56 (A.2) ÍÆ¼ö
    * - strasdat_thesis_2012.pdf p194 (B.4)
    */
   virtual void linearizeOplus();
 
   /**
-   * å°†XwæŠ•å½±åˆ°camçš„å›¾åƒåæ ‡ç³» \n
+   * ½«XwÍ¶Ó°µ½camµÄÍ¼Ïñ×ø±êÏµ \n
    * \f$ ul = \frac{f_x X}{Z} + c_x \f$ \n
    * \f$ vl = \frac{f_y Y}{Z} + c_v \f$ \n
    * \f$ ur = \frac{f_x (X-b)}{Z} + c_x \f$ \n
    * @param  trans_xyz [X Y Z]
    * @return           [ul vl ur]
    */
-  Vector3d cam_project(const Vector3d & trans_xyz) const; // å°†XwæŠ•å½±åˆ°camçš„å›¾åƒåæ ‡ç³»
+  Vector3d cam_project(const Vector3d & trans_xyz) const; // ½«XwÍ¶Ó°µ½camµÄÍ¼Ïñ×ø±êÏµ
 
-  Vector3d Xw; ///< MapPointåœ¨ä¸–ç•Œåæ ‡ç³»çš„ä½ç½®
-  double fx, fy, cx, cy, bf; ///< å†…å‚æ•°ï¼Œbf = b*f
+  Vector3d Xw; ///< MapPointÔÚÊÀ½ç×ø±êÏµµÄÎ»ÖÃ
+  double fx, fy, cx, cy, bf; ///< ÄÚ²ÎÊı£¬bf = b*f
 };
 
 
