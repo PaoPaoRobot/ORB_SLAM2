@@ -33,6 +33,8 @@
 
 #include "../DUtils/Random.h"
 
+#include "../DUtils/config.h"
+
 using namespace std;
 
 namespace DBoW2 {
@@ -41,8 +43,8 @@ namespace DBoW2 {
 /// @param F class of descriptor functions
 template<class TDescriptor, class F>
 /// Generic Vocabulary
-class TemplatedVocabulary
-{		
+class EXPORT TemplatedVocabulary 
+{
 public:
   
   /**
@@ -1417,7 +1419,7 @@ bool TemplatedVocabulary<TDescriptor,F>::loadFromTextFile(const std::string &fil
         ssnode >> nIsLeaf;
 
         stringstream ssd;
-        for(int iD=0;iD<F::L;iD++)
+        for(int iD=0;iD<F::L;iD++) // F::L
         {
             string sElement;
             ssnode >> sElement;

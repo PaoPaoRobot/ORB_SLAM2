@@ -13,7 +13,8 @@
 #include <vector>
 #include <string>
 #include <sstream>
-#include <stdint-gcc.h>
+#include <stdint.h>
+#include <limits.h>
 
 #include "FORB.h"
 

@@ -16,10 +16,12 @@
 
 #include "FClass.h"
 
+#include "../DUtils/config.h"
+
 namespace DBoW2 {
 
 /// Functions to manipulate ORB descriptors
-class FORB: protected FClass
+class EXPORT FORB : protected FClass
 {
 public:
 

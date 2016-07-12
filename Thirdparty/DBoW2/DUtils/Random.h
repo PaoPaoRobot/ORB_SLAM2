@@ -15,10 +15,12 @@
 #include <cstdlib>
 #include <vector>
 
+#include "config.h"
+
 namespace DUtils {
 
 /// Functions to generate pseudo-random numbers
-class Random
+class EXPORT Random
 {
 public:
   class UnrepeatedRandomizer;
