@@ -2,7 +2,7 @@
 #define G2O_CONFIG_H
 
 /* #undef G2O_OPENMP */
-/* #undef G2O_SHARED_LIBS */
+#define G2O_SHARED_LIBS 1
 
 // give a warning if Eigen defaults to row-major matrices.
 // We internally assume column-major matrices throughout the code.
