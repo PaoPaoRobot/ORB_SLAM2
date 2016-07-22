@@ -7,6 +7,6 @@ install_manifest.txt
 /doc/html
 /doc/latex
 index.html
-.tags
-.tags_sorted_by_file
+.*
 *build*
+lib/
