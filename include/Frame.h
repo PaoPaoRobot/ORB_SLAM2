@@ -67,6 +67,7 @@ public:
     void ComputeBoW();
 
     // Set the camera pose.
+    // 用Tcw更新mTcw
     void SetPose(cv::Mat Tcw);
 
     // Computes rotation, translation and camera center matrices from the camera pose.
@@ -173,7 +174,7 @@ public:
     // Keypoints are assigned to cells in a grid to reduce matching complexity when projecting MapPoints.
     static float mfGridElementWidthInv;
     static float mfGridElementHeightInv;
-    // 这是grid，将图像分成格子，保证提取的特征点比较均匀
+    // 每个格子分配的特征点数，将图像分成格子，保证提取的特征点比较均匀
     // #define FRAME_GRID_ROWS 48
     // #define FRAME_GRID_COLS 64
     std::vector<std::size_t> mGrid[FRAME_GRID_COLS][FRAME_GRID_ROWS];

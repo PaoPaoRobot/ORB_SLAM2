@@ -415,8 +415,8 @@ void MapPoint::UpdateNormalAndDepth()
         n++;
     } 
 
-    cv::Mat PC = Pos - pRefKF->GetCameraCenter();
-    const float dist = cv::norm(PC); // 该点到参考关键帧的距离
+    cv::Mat PC = Pos - pRefKF->GetCameraCenter(); // 3D点P在相机坐标系下的坐标
+    const float dist = cv::norm(PC); // 相机坐标系下该点到参考关键帧相机的距离
     const int level = pRefKF->mvKeysUn[observations[pRefKF]].octave;
     const float levelScaleFactor =  pRefKF->mvScaleFactors[level];
     const int nLevels = pRefKF->mnScaleLevels; // 金字塔层数
@@ -441,14 +441,27 @@ float MapPoint::GetMaxDistanceInvariance()
     return 1.2f*mfMaxDistance;
 }
 
+//              ____
+// Nearer      /____\     level:n-1 --> dmin
+//            /______\                       d/dmin = 1.2^n-1-m
+//           /________\   level:m   --> d
+//          /__________\                     dmax/d = 1.2^m
+// Farther /____________\ level:0   --> dmax
+//
+//           log(dmax/d)
+// m = ceil(------------)
+//            log(1.2)
 int MapPoint::PredictScale(const float &currentDist, const float &logScaleFactor)
 {
     float ratio;
     {
         unique_lock<mutex> lock3(mMutexPos);
+        // mfMaxDistance = ref_dist*levelScaleFactor为参考帧考虑上尺度后的距离
+        // ratio = mfMaxDistance/currentDist = ref_dist/cur_dist
         ratio = mfMaxDistance/currentDist;
     }
 
+    // 同时取log线性化
     return ceil(log(ratio)/logScaleFactor);
 }
 

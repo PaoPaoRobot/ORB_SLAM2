@@ -202,6 +202,7 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extra
     if(mvKeys.empty())
         return;
 
+    // 调用OpenCV的矫正函数矫正orb提取的特征点
     UndistortKeyPoints();
 
     // Set no stereo information
@@ -282,7 +283,9 @@ void Frame::UpdatePoseMatrices()
     mRcw = mTcw.rowRange(0,3).colRange(0,3);
     mRwc = mRcw.t();
     mtcw = mTcw.rowRange(0,3).col(3);
-    mOw = -mRcw.t()*mtcw; // mtwc, 即相机在世界坐标系的位置
+    // mtcw, 即相机坐标系下相机坐标系到世界坐标系间的向量, 向量方向由世界坐标系指向相机坐标系
+    // mOw, 即世界坐标系下世界坐标系到相机坐标系间的向量, 向量方向由相机坐标系指向世界坐标系
+    mOw = -mRcw.t()*mtcw;
 }
 
 /**
@@ -302,9 +305,10 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
     cv::Mat P = pMP->GetWorldPos(); 
 
     // 3D in camera coordinates
+    // 3D点P在相机坐标系下的坐标
     const cv::Mat Pc = mRcw*P+mtcw; // 这里的Rt是经过初步的优化后的
     const float &PcX = Pc.at<float>(0);
-    const float &PcY= Pc.at<float>(1);
+    const float &PcY = Pc.at<float>(1);
     const float &PcZ = Pc.at<float>(2);
 
     // Check positive depth
@@ -326,14 +330,15 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
     // V-D 3) 计算MapPoint到相机中心的距离, 并判断是否在尺度变化的距离内
     const float maxDistance = pMP->GetMaxDistanceInvariance();
     const float minDistance = pMP->GetMinDistanceInvariance();
+    // 世界坐标系下，相机到3D点P的向量, 向量方向由相机指向3D点P
     const cv::Mat PO = P-mOw;
     const float dist = cv::norm(PO);
 
     if(dist<minDistance || dist>maxDistance)
         return false;
 
-   // Check viewing angle
-   // V-D 2) 计算视角和平均视角的方向, 并判断是否小于60度
+    // Check viewing angle
+    // V-D 2) 计算视角和平均视角的方向, 并判断是否小于60度
     cv::Mat Pn = pMP->GetNormal();
 
     const float viewCos = PO.dot(Pn)/dist;
@@ -342,7 +347,7 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
         return false;
 
     // Predict scale in the image
-    // V-D 4) 在尺度缩放比例中寻找和ratio相近的尺度，该尺度相对于当前帧
+    // V-D 4) 根据深度预测尺度（对应特征点在一层）
     const int nPredictedLevel = pMP->PredictScale(dist,mfLogScaleFactor);
 	if(nPredictedLevel>=mnScaleLevels || nPredictedLevel<0)
 		return false;
@@ -351,9 +356,9 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
     // 标记该点将来要被投影
     pMP->mbTrackInView = true;
     pMP->mTrackProjX = u;
-    pMP->mTrackProjXR = u - mbf*invz;
+    pMP->mTrackProjXR = u - mbf*invz; //该3D点投影到双目右侧相机上的横坐标
     pMP->mTrackProjY = v;
-    pMP->mnTrackScaleLevel= nPredictedLevel;
+    pMP->mnTrackScaleLevel = nPredictedLevel;
     pMP->mTrackViewCos = viewCos;
 
     return true;
@@ -449,8 +454,10 @@ void Frame::ComputeBoW()
     }
 }
 
+// 调用OpenCV的矫正函数矫正orb提取的特征点
 void Frame::UndistortKeyPoints()
 {
+    // 如果没有图像是矫正过的，没有失真
     if(mDistCoef.at<float>(0)==0.0)
     {
         mvKeysUn=mvKeys;
@@ -458,6 +465,7 @@ void Frame::UndistortKeyPoints()
     }
 
     // Fill matrix with points
+    // N为提取的特征点数量，将N个特征点保存在N*2的mat中
     cv::Mat mat(N,2,CV_32F);
     for(int i=0; i<N; i++)
     {
@@ -466,6 +474,7 @@ void Frame::UndistortKeyPoints()
     }
 
     // Undistort points
+    // 调整mat的通道为2，矩阵的行列形状不变
     mat=mat.reshape(2);
     cv::undistortPoints(mat,mat,mK,mDistCoef,cv::Mat(),mK); // 用cv的函数进行失真校正
     mat=mat.reshape(1);
@@ -485,14 +494,15 @@ void Frame::ComputeImageBounds(const cv::Mat &imLeft)
 {
     if(mDistCoef.at<float>(0)!=0.0)
     {
+        // 矫正前四个边界点：(0,0) (cols,0) (0,rows) (cols,rows)
         cv::Mat mat(4,2,CV_32F);
-        mat.at<float>(0,0)=0.0;
+        mat.at<float>(0,0)=0.0;         //左上
 		mat.at<float>(0,1)=0.0;
-        mat.at<float>(1,0)=imLeft.cols;
+        mat.at<float>(1,0)=imLeft.cols; //右上
 		mat.at<float>(1,1)=0.0;
-		mat.at<float>(2,0)=0.0;
+		mat.at<float>(2,0)=0.0;         //左下
 		mat.at<float>(2,1)=imLeft.rows;
-        mat.at<float>(3,0)=imLeft.cols;
+        mat.at<float>(3,0)=imLeft.cols; //右下
 		mat.at<float>(3,1)=imLeft.rows;
 
         // Undistort corners
@@ -500,11 +510,10 @@ void Frame::ComputeImageBounds(const cv::Mat &imLeft)
         cv::undistortPoints(mat,mat,mK,mDistCoef,cv::Mat(),mK);
         mat=mat.reshape(1);
 
-        mnMinX = min(mat.at<float>(0,0),mat.at<float>(2,0));
-        mnMaxX = max(mat.at<float>(1,0),mat.at<float>(3,0));
-        mnMinY = min(mat.at<float>(0,1),mat.at<float>(1,1));
-        mnMaxY = max(mat.at<float>(2,1),mat.at<float>(3,1));
-
+        mnMinX = min(mat.at<float>(0,0),mat.at<float>(2,0));//左上和左下横坐标最小的
+        mnMaxX = max(mat.at<float>(1,0),mat.at<float>(3,0));//右上和右下横坐标最大的
+        mnMinY = min(mat.at<float>(0,1),mat.at<float>(1,1));//左上和右上纵坐标最小的
+        mnMaxY = max(mat.at<float>(2,1),mat.at<float>(3,1));//左下和右下纵坐标最小的
     }
     else
     {
@@ -516,8 +525,8 @@ void Frame::ComputeImageBounds(const cv::Mat &imLeft)
 }
 
 // 为左图的每一个特征点在右图中找到匹配点
-// 通过在水平线(有冗余范围)描述子距离找到匹配, 再NCC精确定位
-// 最后对所有NCC的值进行排序, 剔除NCC值较大的匹配对
+// 通过在水平线(有冗余范围)描述子距离找到匹配, 再SAD精确定位
+// 最后对所有SAD的值进行排序, 剔除SAD值较大的匹配对
 // mvuRight : ur
 // mvDepth  : Z
 void Frame::ComputeStereoMatches()
@@ -528,6 +537,10 @@ void Frame::ComputeStereoMatches()
     const int nRows = mpORBextractorLeft->mvImagePyramid[0].rows;
 
     //Assign keypoints to row table
+    // 匹配搜索的时候，不仅仅是在一条横线上搜索，而是在一条横向搜索带上搜索,简而言之，原本每个特征点的纵坐标为1，这里把特征点体积放大，纵坐标占好几行
+    // 例如左目图像某个特征点的纵坐标为20，那么在右侧图像上搜索时是在纵坐标为18到22这条带上搜索，搜索带宽度为正负2，搜索带的宽度和特征点所在金字塔层数有关
+    // 简单来说，如果纵坐标是20，特征点在图像第20行，那么认为18 19 20 21 22行都有这个特征点
+    // vRowIndices[18]、vRowIndices[19]、vRowIndices[20]、vRowIndices[21]、vRowIndices[22]都有这个特征点编号
     vector<vector<size_t> > vRowIndices(nRows,vector<size_t>());
 
     for(int i=0; i<nRows; i++)
@@ -537,9 +550,11 @@ void Frame::ComputeStereoMatches()
 
     for(int iR=0; iR<Nr; iR++)
     {
+        // !!双目匹配的时候不需要对左目mvKeys和右目mvKeysRight特征点进行校正。不需要双目极线矫正
         const cv::KeyPoint &kp = mvKeysRight[iR];
         const float &kpY = kp.pt.y;
-        // 半径
+        // 计算匹配搜索的纵向宽度，尺度越大（层数越高），搜索范围越大
+        // 如果特征点在金字塔第一层，则搜索范围为:正负2
         const float r = 2.0f*mvScaleFactors[mvKeysRight[iR].octave]; // NOTE 不太能理解为什么要这么做, 可能尺度越大其位置不确定性越高
         const int maxr = ceil(kpY+r);
         const int minr = floor(kpY-r);
@@ -549,16 +564,16 @@ void Frame::ComputeStereoMatches()
     }
 
     // Set limits for search
-    const float minZ = mb;        // NOTE mb没有初始化?
+    const float minZ = mb;        // mb = mbf/fx
     const float minD = -3;        // 最小视差
-    const float maxD = mbf/minZ;  // 最大视差, 对应最小深度
+    const float maxD = mbf/minZ;  // 最大视差, 对应最小深度 mbf/minZ = mbf/mb = mbf/(mbf/fx) = fx (wubo???)
 
     // For each left keypoint search a match in the right image
     // 为左图的每一个特征点在右图中找到匹配点
     vector<pair<int, int> > vDistIdx;
     vDistIdx.reserve(N);
 
-    // 通过描述子的距离找到匹配点, 再通过互相关做亚像素匹配
+    // 对左目相机每个特征点，通过描述子的距离找到匹配点, 再通过SAD做亚像素匹配
     for(int iL=0; iL<N; iL++)
     {
         const cv::KeyPoint &kpL = mvKeys[iL];
@@ -572,8 +587,8 @@ void Frame::ComputeStereoMatches()
         if(vCandidates.empty())
             continue;
 
-        const float minU = uL-maxD;
-        const float maxU = uL-minD;
+        const float minU = uL-maxD; // 最小匹配范围
+        const float maxU = uL-minD; // 最大匹配范围
 
         if(maxU<0)
             continue;
@@ -581,9 +596,11 @@ void Frame::ComputeStereoMatches()
         int bestDist = ORBmatcher::TH_HIGH;
         size_t bestIdxR = 0;
 
+        // 每个特征点描述子占一行，建立一个指针指向iL特征点对应的描述子
         const cv::Mat &dL = mDescriptors.row(iL);
 
         // Compare descriptor to right keypoints
+        // 遍历右目所有可能的匹配点，找出最佳匹配点（描述子距离最小）
         for(size_t iC=0; iC<vCandidates.size(); iC++)
         {
             const size_t iR = vCandidates[iC];
@@ -606,12 +623,14 @@ void Frame::ComputeStereoMatches()
                 }
             }
         }
-        // 最好的匹配存在bestDist和bestIdxR中
+        // 最好的匹配的匹配误差存在bestDist，匹配点位置存在bestIdxR中
 
         // Subpixel match by correlation
+        // 通过SAD匹配提高像素匹配修正量bestincR，做抛物线拟合找谷底得到亚像素匹配deltaR
         if(bestDist<ORBmatcher::TH_HIGH)
         {
             // coordinates in image pyramid at keypoint scale
+            // 将最佳匹配的特征点对尺度变换金字塔最底层 (scaleduL, scaledvL) (scaleduR0, )
             const float uR0 = mvKeysRight[bestIdxR].pt.x;
             const float scaleFactor = mvInvScaleFactors[kpL.octave];
             const float scaleduL = round(kpL.pt.x*scaleFactor);
@@ -619,52 +638,60 @@ void Frame::ComputeStereoMatches()
             const float scaleduR0 = round(uR0*scaleFactor);
 
             // sliding window search
-            const int w = 5; // 11*11 大小的窗口
+            const int w = 5; // 滑动窗口的大小11*11
             cv::Mat IL = mpORBextractorLeft->mvImagePyramid[kpL.octave].rowRange(scaledvL-w,scaledvL+w+1).colRange(scaleduL-w,scaleduL+w+1);
             IL.convertTo(IL,CV_32F);
-            IL = IL - IL.at<float>(w,w) *cv::Mat::ones(IL.rows,IL.cols,CV_32F);
+            IL = IL - IL.at<float>(w,w) * cv::Mat::ones(IL.rows,IL.cols,CV_32F);//窗口中的每个元素减去正中心的那个元素，简单归一化，减小光照强度影响
 
             int bestDist = INT_MAX;
             int bestincR = 0;
             const int L = 5;
             vector<float> vDists;
-            vDists.resize(2*L+1);
+            vDists.resize(2*L+1); // 11
 
-            const float iniu = scaleduR0+L-w;
+            // 滑动窗口的滑动范围为（-L, L）,提前判断滑动窗口滑动过程中是否会越界
+            const float iniu = scaleduR0+L-w; //这个地方是否应该是scaleduR0-L-w (wubo???)
             const float endu = scaleduR0+L+w+1;
             if(iniu<0 || endu >= mpORBextractorRight->mvImagePyramid[kpL.octave].cols)
                 continue;
 
             for(int incR=-L; incR<=+L; incR++)
             {
+                // 横向滑动窗口
                 cv::Mat IR = mpORBextractorRight->mvImagePyramid[kpL.octave].rowRange(scaledvL-w,scaledvL+w+1).colRange(scaleduR0+incR-w,scaleduR0+incR+w+1);
                 IR.convertTo(IR,CV_32F);
-                IR = IR - IR.at<float>(w,w) *cv::Mat::ones(IR.rows,IR.cols,CV_32F);
+                IR = IR - IR.at<float>(w,w) * cv::Mat::ones(IR.rows,IR.cols,CV_32F);//窗口中的每个元素减去正中心的那个元素，简单归一化，减小光照强度影响
 
-                float dist = cv::norm(IL,IR,cv::NORM_L1);
+                float dist = cv::norm(IL,IR,cv::NORM_L1); // 一范数，计算差的绝对值
                 if(dist<bestDist)
                 {
-                    bestDist =  dist;
-                    bestincR = incR;
+                    bestDist =  dist;// SAD匹配目前最小匹配偏差
+                    bestincR = incR; // SAD匹配目前最佳的修正量
                 }
 
-                vDists[L+incR] = dist;
+                vDists[L+incR] = dist; // 正常情况下，这里面的数据应该以抛物线形式变化
             }
 
-            if(bestincR==-L || bestincR==L)
+            if(bestincR==-L || bestincR==L) // 整个滑动窗口过程中，SAD最小值不是以抛物线形式出现，SAD匹配失败，同时放弃求该特征点的深度
                 continue;
 
             // Sub-pixel match (Parabola fitting)
+            // (bestincR,dist) (bestincR-1,dist) (bestincR+1,dist)三个点拟合出抛物线
+            // bestincR+deltaR就是抛物线谷底的位置，相对SAD匹配出的最小值bestincR的修正量为deltaR
             const float dist1 = vDists[L+bestincR-1];
             const float dist2 = vDists[L+bestincR];
             const float dist3 = vDists[L+bestincR+1];
 
             const float deltaR = (dist1-dist3)/(2.0f*(dist1+dist3-2.0f*dist2));
 
+            // 抛物线拟合得到的修正量不能超过一个像素，否则放弃求该特征点的深度
             if(deltaR<-1 || deltaR>1)
                 continue;
 
             // Re-scaled coordinate
+            // 通过描述子匹配得到匹配点位置为scaleduR0
+            // 通过SAD匹配找到修正量bestincR
+            // 通过抛物线拟合找到亚像素修正量deltaR
             float bestuR = mvScaleFactors[kpL.octave]*((float)scaleduR0+(float)bestincR+deltaR);
 
             // 这里是disparity，根据它算出depth
@@ -678,14 +705,16 @@ void Frame::ComputeStereoMatches()
                     bestuR = uL-0.01;
                 }
                 // depth 是在这里计算的
+                // depth=baseline*fx/disparity
                 mvDepth[iL]=mbf/disparity;   // 深度
                 mvuRight[iL] = bestuR;       // 匹配对在右图的横坐标
-                vDistIdx.push_back(pair<int,int>(bestDist,iL));
+                vDistIdx.push_back(pair<int,int>(bestDist,iL)); // 该特征点SAD匹配最小匹配偏差
             }
         }
     }
 
-    sort(vDistIdx.begin(),vDistIdx.end()); // 根据匹配对的距离进行排序, 距离由近到远
+    // 前面SAD匹配只判断滑动窗口中是否有局部最小值，这里通过对比剔除SAD匹配偏差比较大的特征点的深度
+    sort(vDistIdx.begin(),vDistIdx.end()); // 根据所有匹配对的SAD偏差进行排序, 距离由小到大
     const float median = vDistIdx[vDistIdx.size()/2].first;
     const float thDist = 1.5f*1.4f*median; // 计算自适应距离, 大于此距离的匹配对将剔除
 
