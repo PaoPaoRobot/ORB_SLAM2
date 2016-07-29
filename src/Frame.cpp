@@ -95,7 +95,7 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
     ComputeStereoMatches();
 
     // 对应的mappoints
-    mvpMapPoints = vector<MapPoint*>(N,static_cast<MapPoint*>(NULL));    
+    mvpMapPoints = vector<MapPoint*>(N,static_cast<MapPoint*>(NULL));   
     mvbOutlier = vector<bool>(N,false);
 
 
@@ -564,6 +564,7 @@ void Frame::ComputeStereoMatches()
     }
 
     // Set limits for search
+    // 这里应该是个bug，mb的赋值在构造函数中放在了ComputeStereoMatches这个函数的后面 (wubo???)
     const float minZ = mb;        // mb = mbf/fx
     const float minD = -3;        // 最小视差
     const float maxD = mbf/minZ;  // 最大视差, 对应最小深度 mbf/minZ = mbf/mb = mbf/(mbf/fx) = fx (wubo???)

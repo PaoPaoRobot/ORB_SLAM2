@@ -59,7 +59,7 @@ MapPoint::MapPoint(const cv::Mat &Pos, KeyFrame *pRefKF, Map* pMap):
  * @param Pos    MapPoint的坐标（wrt世界坐标系）
  * @param pMap   Map
  * @param pFrame Frame
- * @param idxF   MapPoint在Frame中的索引
+ * @param idxF   MapPoint在Frame中的索引，即对应的特征点的编号
  */
 MapPoint::MapPoint(const cv::Mat &Pos, Map* pMap, Frame* pFrame, const int &idxF):
     mnFirstKFid(-1), mnFirstFrame(pFrame->mnId), nObs(0), mnTrackReferenceForFrame(0), mnLastFrameSeen(0),
@@ -69,8 +69,8 @@ MapPoint::MapPoint(const cv::Mat &Pos, Map* pMap, Frame* pFrame, const int &idxF
 {
     Pos.copyTo(mWorldPos);
     cv::Mat Ow = pFrame->GetCameraCenter();
-    mNormalVector = mWorldPos - Ow;
-    mNormalVector = mNormalVector/cv::norm(mNormalVector);
+    mNormalVector = mWorldPos - Ow;// 世界坐标系下相机到3D点的向量
+    mNormalVector = mNormalVector/cv::norm(mNormalVector);// 世界坐标系下相机到3D点的单位向量
 
     cv::Mat PC = Pos - Ow;
     const float dist = cv::norm(PC);
@@ -78,9 +78,11 @@ MapPoint::MapPoint(const cv::Mat &Pos, Map* pMap, Frame* pFrame, const int &idxF
     const float levelScaleFactor =  pFrame->mvScaleFactors[level];
     const int nLevels = pFrame->mnScaleLevels;
 
+    // 另见PredictScale函数前的注释
     mfMaxDistance = dist*levelScaleFactor;
     mfMinDistance = mfMaxDistance/pFrame->mvScaleFactors[nLevels-1];
 
+    // 见mDescriptor在MapPoint.h中的注释
     pFrame->mDescriptors.row(idxF).copyTo(mDescriptor);
 
     // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
@@ -149,6 +151,7 @@ void MapPoint::EraseObservation(KeyFrame* pKF)
 
             mObservations.erase(pKF);
 
+            // 如果该keyFrame是参考帧，该Frame被删除后重新指定RefFrame
             if(mpRefKF==pKF)
                 mpRefKF=mObservations.begin()->first;
 
@@ -182,16 +185,16 @@ void MapPoint::SetBadFlag()
         unique_lock<mutex> lock1(mMutexFeatures);
         unique_lock<mutex> lock2(mMutexPos);
         mbBad=true;
-        obs = mObservations;
-        mObservations.clear();
+        obs = mObservations;// 把mObservations转存到obs，obs和mObservations里存的是指针，赋值过程为浅拷贝
+        mObservations.clear();// 把mObservations指向的内存释放，obs作为局部变量之后自动删除
     }
     for(map<KeyFrame*,size_t>::iterator mit=obs.begin(), mend=obs.end(); mit!=mend; mit++)
     {
         KeyFrame* pKF = mit->first;
-        pKF->EraseMapPointMatch(mit->second);
+        pKF->EraseMapPointMatch(mit->second);// 告诉可以观测到该MapPoint的KeyFrame，该MapPoint被删了
     }
 
-    mpMap->EraseMapPoint(this);
+    mpMap->EraseMapPoint(this);// 擦除该MapPoint申请的内存
 }
 
 MapPoint* MapPoint::GetReplaced()
@@ -201,13 +204,14 @@ MapPoint* MapPoint::GetReplaced()
     return mpReplaced;
 }
 
+// 在形成闭环的时候，会更新KeyFrame与MapPoint之间的关系
 void MapPoint::Replace(MapPoint* pMP)
 {
     if(pMP->mnId==this->mnId)
         return;
 
     int nvisible, nfound;
-    map<KeyFrame*,size_t> obs;
+    map<KeyFrame*,size_t> obs;// 这一段和SetBadFlag函数相同
     {
         unique_lock<mutex> lock1(mMutexFeatures);
         unique_lock<mutex> lock2(mMutexPos);
@@ -226,10 +230,10 @@ void MapPoint::Replace(MapPoint* pMP)
 
         if(!pMP->IsInKeyFrame(pKF))
         {
-            pKF->ReplaceMapPointMatch(mit->second, pMP);
-            pMP->AddObservation(pKF,mit->second);
+            pKF->ReplaceMapPointMatch(mit->second, pMP);// 让KeyFrame替换掉对应的MapPoint
+            pMP->AddObservation(pKF,mit->second);// 让MapPoint替换掉对应的KeyFrame
         }
-        else
+        else// 这个地方不理解 （wubo???）
         {
             pKF->EraseMapPointMatch(mit->second);
         }
@@ -248,12 +252,14 @@ bool MapPoint::isBad()
     return mbBad;
 }
 
+// mnVisible记录可以观测到该MapPoint的关键帧数
 void MapPoint::IncreaseVisible(int n)
 {
     unique_lock<mutex> lock(mMutexFeatures);
     mnVisible+=n;
 }
 
+// 在mnVisible的基础上，在运动模型跟踪过程中观测该MapPoint属于inlier的关键帧数，记录于mnFound
 void MapPoint::IncreaseFound(int n)
 {
     unique_lock<mutex> lock(mMutexFeatures);
@@ -423,6 +429,7 @@ void MapPoint::UpdateNormalAndDepth()
 
     {
         unique_lock<mutex> lock3(mMutexPos);
+        // 另见PredictScale函数前的注释
         mfMaxDistance = dist*levelScaleFactor;                           // 观测到该点的距离下限
         mfMinDistance = mfMaxDistance/pRefKF->mvScaleFactors[nLevels-1]; // 观测到该点的距离上限
         mNormalVector = normal/n;                                        // 获得平均的观测方向

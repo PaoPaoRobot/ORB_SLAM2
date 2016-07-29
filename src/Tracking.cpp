@@ -429,7 +429,7 @@ void Tracking::Track()
                     }
                     bOKReloc = Relocalization();
 
-                    // 如果跟踪成功，但是重定位没有成功
+                    // 重定位没有成功，但是如果跟踪成功
                     if(bOKMM && !bOKReloc)
                     {
                         mCurrentFrame.SetPose(TcwMM);
