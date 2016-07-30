@@ -172,11 +172,12 @@ public:
     std::vector<bool> mvbOutlier;
 
     // Keypoints are assigned to cells in a grid to reduce matching complexity when projecting MapPoints.
+    // 坐标乘以mfGridElementWidthInv和mfGridElementHeightInv就可以确定在哪个格子
     static float mfGridElementWidthInv;
     static float mfGridElementHeightInv;
     // 每个格子分配的特征点数，将图像分成格子，保证提取的特征点比较均匀
-    // #define FRAME_GRID_ROWS 48
-    // #define FRAME_GRID_COLS 64
+    // FRAME_GRID_ROWS 48
+    // FRAME_GRID_COLS 64
     std::vector<std::size_t> mGrid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
     // Camera pose.

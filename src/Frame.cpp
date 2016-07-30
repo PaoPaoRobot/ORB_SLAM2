@@ -279,7 +279,8 @@ void Frame::SetPose(cv::Mat Tcw)
  * 根据Tcw计算mRcw、mtcw和mRwc、mOw
  */
 void Frame::UpdatePoseMatrices()
-{ 
+{
+    // [x_camera 1] = [R|t]*[x_world 1]
     mRcw = mTcw.rowRange(0,3).colRange(0,3);
     mRwc = mRcw.t();
     mtcw = mTcw.rowRange(0,3).col(3);

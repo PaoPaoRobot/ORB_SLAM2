@@ -178,6 +178,7 @@ int MapPoint::Observations()
     return nObs;
 }
 
+// 告知可以观测到该MapPoint的Frame，该MapPoint已被删除
 void MapPoint::SetBadFlag()
 {
     map<KeyFrame*,size_t> obs;
