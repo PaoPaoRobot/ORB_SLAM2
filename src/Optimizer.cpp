@@ -431,7 +431,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
             }
 
             if(it==2)
-                e->setRobustKernel(0); // 除了第一次优化需要RobustKernel以外, 其余优化都不需要
+                e->setRobustKernel(0); // 除了前两次优化需要RobustKernel以外, 其余的优化都不需要
         }
 
         for(size_t i=0, iend=vpEdgesStereo.size(); i<iend; i++)

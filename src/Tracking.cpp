@@ -559,6 +559,7 @@ void Tracking::Track()
         if(!mCurrentFrame.mpReferenceKF)
             mCurrentFrame.mpReferenceKF = mpReferenceKF;
 
+        // 保存上一帧的数据
         mLastFrame = Frame(mCurrentFrame);
     }
 
@@ -1195,7 +1196,7 @@ bool Tracking::NeedNewKeyFrame()
         return false;
 
     // Tracked MapPoints in the reference keyframe
-    // 将track local map步骤中找到的匹配地图点最多的帧设置为参考关键帧
+	// 在TrackLocalMap步骤中找到的匹配地图点最多的帧设置为参考关键帧
     int nMinObs = 3;
     if(nKFs<=2)
         nMinObs=2;
@@ -1279,6 +1280,11 @@ bool Tracking::NeedNewKeyFrame()
         return false;
 }
 
+/**
+ * @brief 创建新的关键帧
+ *
+ * 对于非单目的情况，同时创建新的MapPoints
+ */
 void Tracking::CreateNewKeyFrame()
 {
     if(!mpLocalMapper->SetNotStop(true))
@@ -1310,6 +1316,7 @@ void Tracking::CreateNewKeyFrame()
 
         if(!vDepthIdx.empty())
         {
+            // 按深度由近到远进行排序
             sort(vDepthIdx.begin(),vDepthIdx.end());
 
             int nPoints = 0;
@@ -1405,10 +1412,10 @@ void Tracking::SearchLocalPoints()
             continue;
         
         // Project (this fills MapPoint variables for matching)
-        // 判断该点是否能被当前帧观测到
+        // 判断LocalMapPoints中的点是否在在视野内，注意该点不一定能观测到
         if(mCurrentFrame.isInFrustum(pMP,0.5))
         {
-            // 能观测到该点的帧数+1
+        	// 可能观测到该点的帧数+1
             pMP->IncreaseVisible();
             nToMatch++;
         }

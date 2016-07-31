@@ -146,9 +146,10 @@ bool LocalMapping::CheckNewKeyFrames()
 /**
  * @brief 处理列表中的关键帧
  * 
- * - 计算Bow
+ * - 计算Bow，加速三角化新的MapPoints
  * - 关联当前关键帧至MapPoints，并更新MapPoints的平均观测方向和观测距离范围
  * - 插入关键帧，更新Covisibility图和Ensenssial图
+ * @see VI-A keyframe insertion
  */
 void LocalMapping::ProcessNewKeyFrame()
 {
@@ -172,9 +173,10 @@ void LocalMapping::ProcessNewKeyFrame()
         {
             if(!pMP->isBad())
             {
-                // NOTE 
+                // NOTE 什么情况会出现？
                 if(!pMP->IsInKeyFrame(mpCurrentKeyFrame))
                 {
+                    // 添加观测
                     pMP->AddObservation(mpCurrentKeyFrame, i);
                     // 获得该点的平均观测方向和观测距离范围
                     pMP->UpdateNormalAndDepth();
@@ -198,6 +200,10 @@ void LocalMapping::ProcessNewKeyFrame()
     mpMap->AddKeyFrame(mpCurrentKeyFrame);
 }
 
+/**
+ * @brief MapPoints剔除
+ * @see VI-B recent map points culling
+ */
 void LocalMapping::MapPointCulling()
 {
     // Check Recent Added MapPoints
@@ -729,14 +735,23 @@ void LocalMapping::InterruptBA()
     mbAbortBA = true;
 }
 
+/**
+ * @brief 关键帧剔除
+ * 
+ * 在Covisibility Graph中的关键帧，其90%以上的MapPoints能被其他关键帧（至少3个）观测到，则认为该关键帧为冗余关键帧。
+ * @see VI-E Local Keyframe Culling
+ */
 void LocalMapping::KeyFrameCulling()
 {
     // Check redundant keyframes (only local keyframes)
     // A keyframe is considered redundant if the 90% of the MapPoints it sees, are seen
     // in at least other 3 keyframes (in the same or finer scale)
     // We only consider close stereo points
+
+    // 根据Covisibility Graph确定局部关键帧
     vector<KeyFrame*> vpLocalKeyFrames = mpCurrentKeyFrame->GetVectorCovisibleKeyFrames();
 
+    // 对所有的局部关键帧进行遍历
     for(vector<KeyFrame*>::iterator vit=vpLocalKeyFrames.begin(), vend=vpLocalKeyFrames.end(); vit!=vend; vit++)
     {
         KeyFrame* pKF = *vit;
@@ -750,6 +765,8 @@ void LocalMapping::KeyFrameCulling()
         const int thObs=nObs;
         int nRedundantObservations=0;
         int nMPs=0;
+
+        // 遍历该局部关键帧的MapPoints
         for(size_t i=0, iend=vpMapPoints.size(); i<iend; i++)
         {
             MapPoint* pMP = vpMapPoints[i];
@@ -759,6 +776,7 @@ void LocalMapping::KeyFrameCulling()
                 {
                     if(!mbMonocular)
                     {
+                        // 对于双目，仅考虑近处的MapPoints
                         if(pKF->mvDepth[i]>pKF->mThDepth || pKF->mvDepth[i]<0)
                             continue;
                     }
@@ -776,6 +794,7 @@ void LocalMapping::KeyFrameCulling()
                                 continue;
                             const int &scaleLeveli = pKFi->mvKeysUn[mit->second].octave;
 
+                            // Scale Condition 尺度约束，要求MapPoint在该局部关键帧的特征尺度大于（或近似于）其它关键帧的特征尺度
                             if(scaleLeveli<=scaleLevel+1)
                             {
                                 nObs++;
@@ -790,8 +809,9 @@ void LocalMapping::KeyFrameCulling()
                     }
                 }
             }
-        }  
+        }
 
+        // 该局部关键帧90%以上的MapPoints能被其它关键帧（至少3个）观测到，则认为是冗余关键帧
         if(nRedundantObservations>0.9*nMPs)
             pKF->SetBadFlag();
     }

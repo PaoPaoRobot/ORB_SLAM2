@@ -222,6 +222,7 @@ protected:
     // Grid over the image to speed up feature matching
     std::vector< std::vector <std::vector<size_t> > > mGrid;
 
+    // Covisibility Graph
     std::map<KeyFrame*,int> mConnectedKeyFrameWeights; ///< 与该关键帧连接的关键帧与权重
     std::vector<KeyFrame*> mvpOrderedConnectedKeyFrames; ///< 排序后的关键帧
     std::vector<int> mvOrderedWeights; ///< 排序后的权重(从大到小)

@@ -67,7 +67,7 @@ public:
     ///@}
 
     /**
-     * @name tiEigen
+     * @name toEigen
      */
     ///@{
     static Eigen::Matrix<double,3,1> toVector3d(const cv::Mat &cvVector);

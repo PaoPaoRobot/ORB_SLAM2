@@ -253,14 +253,25 @@ bool MapPoint::isBad()
     return mbBad;
 }
 
-// mnVisible记录可以观测到该MapPoint的关键帧数
+/**
+ * @brief Increase Visible
+ *
+ * Visible表示：
+ * 1. 该MapPoint被当前帧观测到
+ * 2. 该MapPoint在当前帧的视野中 Frame::isInFrustum() ，可能会被观测到
+ */
 void MapPoint::IncreaseVisible(int n)
 {
     unique_lock<mutex> lock(mMutexFeatures);
     mnVisible+=n;
 }
 
-// 在mnVisible的基础上，在运动模型跟踪过程中观测该MapPoint属于inlier的关键帧数，记录于mnFound
+/**
+ * @brief Increase Found
+ *
+ * Found表示该MapPoint被当前帧观测到
+ * @see Tracking::TrackLocalMap()
+ */
 void MapPoint::IncreaseFound(int n)
 {
     unique_lock<mutex> lock(mMutexFeatures);

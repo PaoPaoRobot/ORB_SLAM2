@@ -35,7 +35,11 @@ float Frame::mfGridElementWidthInv, Frame::mfGridElementHeightInv;
 Frame::Frame()
 {}
 
-//Copy Constructor
+/**
+ * @brief Copy constructor
+ *
+ * 复制构造函数, mLastFrame = Frame(mCurrentFrame)
+ */
 Frame::Frame(const Frame &frame)
     :mpORBvocabulary(frame.mpORBvocabulary), mpORBextractorLeft(frame.mpORBextractorLeft), mpORBextractorRight(frame.mpORBextractorRight),
      mTimeStamp(frame.mTimeStamp), mK(frame.mK.clone()), mDistCoef(frame.mDistCoef.clone()),
@@ -525,11 +529,14 @@ void Frame::ComputeImageBounds(const cv::Mat &imLeft)
     }
 }
 
-// 为左图的每一个特征点在右图中找到匹配点
-// 通过在水平线(有冗余范围)描述子距离找到匹配, 再SAD精确定位
-// 最后对所有SAD的值进行排序, 剔除SAD值较大的匹配对
-// mvuRight : ur
-// mvDepth  : Z
+/**
+ * @brief 双目匹配
+ *
+ * 为左图的每一个特征点在右图中找到匹配点 \n
+ * 根据基线(有冗余范围)上描述子距离找到匹配, 再进行SAD精确定位 \n
+ * 最后对所有SAD的值进行排序, 剔除SAD值较大的匹配对 \n
+ * 匹配成功后会更新 mvuRight(ur) 和 mvDepth(Z)
+ */
 void Frame::ComputeStereoMatches()
 {
     mvuRight = vector<float>(N,-1.0f);
@@ -556,7 +563,7 @@ void Frame::ComputeStereoMatches()
         const float &kpY = kp.pt.y;
         // 计算匹配搜索的纵向宽度，尺度越大（层数越高），搜索范围越大
         // 如果特征点在金字塔第一层，则搜索范围为:正负2
-        const float r = 2.0f*mvScaleFactors[mvKeysRight[iR].octave]; // NOTE 不太能理解为什么要这么做, 可能尺度越大其位置不确定性越高
+        const float r = 2.0f*mvScaleFactors[mvKeysRight[iR].octave]; // 尺度越大其位置不确定性越高，所以其搜索半径越大
         const int maxr = ceil(kpY+r);
         const int minr = floor(kpY-r);
 
@@ -565,9 +572,8 @@ void Frame::ComputeStereoMatches()
     }
 
     // Set limits for search
-    // 这里应该是个bug，mb的赋值在构造函数中放在了ComputeStereoMatches这个函数的后面 (wubo???)
-    const float minZ = mb;        // mb = mbf/fx
-    const float minD = -3;        // 最小视差
+    const float minZ = mb;        // NOTE bug mb没有初始化，mb的赋值在构造函数中放在ComputeStereoMatches函数的后面
+    const float minD = -3;        // 最小视差, 设置为0即可
     const float maxD = mbf/minZ;  // 最大视差, 对应最小深度 mbf/minZ = mbf/mb = mbf/(mbf/fx) = fx (wubo???)
 
     // For each left keypoint search a match in the right image
@@ -608,6 +614,7 @@ void Frame::ComputeStereoMatches()
             const size_t iR = vCandidates[iC];
             const cv::KeyPoint &kpR = mvKeysRight[iR];
 
+            // 仅对近邻尺度的特征点进行匹配
             if(kpR.octave<levelL-1 || kpR.octave>levelL+1)
                 continue;
 
@@ -640,7 +647,7 @@ void Frame::ComputeStereoMatches()
             const float scaleduR0 = round(uR0*scaleFactor);
 
             // sliding window search
-            const int w = 5; // 滑动窗口的大小11*11
+            const int w = 5; // 滑动窗口的大小11*11 注意该窗口取自resize后的图像
             cv::Mat IL = mpORBextractorLeft->mvImagePyramid[kpL.octave].rowRange(scaledvL-w,scaledvL+w+1).colRange(scaleduL-w,scaleduL+w+1);
             IL.convertTo(IL,CV_32F);
             IL = IL - IL.at<float>(w,w) * cv::Mat::ones(IL.rows,IL.cols,CV_32F);//窗口中的每个元素减去正中心的那个元素，简单归一化，减小光照强度影响

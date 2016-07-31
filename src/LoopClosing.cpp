@@ -97,6 +97,10 @@ void LoopClosing::InsertKeyFrame(KeyFrame *pKF)
         mlpLoopKeyFrameQueue.push_back(pKF);
 }
 
+/**
+ * 查看列表中是否有等待被插入的关键帧
+ * @return 如果存在，返回true
+ */
 bool LoopClosing::CheckNewKeyFrames()
 {
     unique_lock<mutex> lock(mMutexLoopQueue);
