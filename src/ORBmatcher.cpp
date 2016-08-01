@@ -81,7 +81,7 @@ int ORBmatcher::SearchByProjection(Frame &F, const vector<MapPoint*> &vpMapPoint
         const int &nPredictedLevel = pMP->mnTrackScaleLevel;
 
         // The size of the window will depend on the viewing direction
-        // 搜索窗口的大小取决于视角, 当mTrackViewCos接近于90度时,r取一个较小的值
+        // 搜索窗口的大小取决于视角, 若当前视角和平均视角夹角接近0度时, r取一个较小的值
         float r = RadiusByViewingCos(pMP->mTrackViewCos);
         
         // 如果需要进行更粗糙的搜索，则增大范围
