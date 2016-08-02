@@ -904,13 +904,18 @@ bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv:
 // |z|     |p9 p10 p11 p12||1|     |z|    |--p2--||.|
 // 采用DLT的方法：x叉乘PX = 0
 // |yp2 -  p1|     |0|
-// |p0 -  xp2| X = |0| 
+// |p0 -  xp2| X = |0|
 // |xp1 - yp0|     |0|
 // 两个点:
 // |yp2   -  p1  |     |0|
 // |p0    -  xp2 | X = |0| ===> AX = 0
 // |y'p2' -  p1' |     |0|
 // |p0'   - x'p2'|     |0|
+// 变成程序中的形式：
+// |xp2  - p0 |     |0|
+// |yp2  - p1 | X = |0| ===> AX = 0
+// |x'p2'- p0'|     |0|
+// |y'p2'- p1'|     |0|
 
 /**
  * @brief 给定投影矩阵P1,P2和图像上的点kp1,kp2，从而恢复3D坐标

@@ -284,12 +284,13 @@ void Frame::SetPose(cv::Mat Tcw)
  */
 void Frame::UpdatePoseMatrices()
 {
-    // [x_camera 1] = [R|t]*[x_world 1]
+    // [x_camera 1] = [R|t]*[x_world 1]，坐标为齐次形式
+    // x_camera = R*x_world + t
     mRcw = mTcw.rowRange(0,3).colRange(0,3);
     mRwc = mRcw.t();
     mtcw = mTcw.rowRange(0,3).col(3);
-    // mtcw, 即相机坐标系下相机坐标系到世界坐标系间的向量, 向量方向由世界坐标系指向相机坐标系
-    // mOw, 即世界坐标系下世界坐标系到相机坐标系间的向量, 向量方向由相机坐标系指向世界坐标系
+    // mtcw, 即相机坐标系下相机坐标系到世界坐标系间的向量, 向量方向由相机坐标系指向世界坐标系
+    // mOw, 即世界坐标系下世界坐标系到相机坐标系间的向量, 向量方向由世界坐标系指向相机坐标系
     mOw = -mRcw.t()*mtcw;
 }
 
@@ -534,7 +535,7 @@ void Frame::ComputeImageBounds(const cv::Mat &imLeft)
  *
  * 为左图的每一个特征点在右图中找到匹配点 \n
  * 根据基线(有冗余范围)上描述子距离找到匹配, 再进行SAD精确定位 \n
- * 最后对所有SAD的值进行排序, 剔除SAD值较大的匹配对 \n
+ * 最后对所有SAD的值进行排序, 剔除SAD值较大的匹配对，然后利用抛物线拟合得到亚像素精度的匹配 \n
  * 匹配成功后会更新 mvuRight(ur) 和 mvDepth(Z)
  */
 void Frame::ComputeStereoMatches()
@@ -558,7 +559,7 @@ void Frame::ComputeStereoMatches()
 
     for(int iR=0; iR<Nr; iR++)
     {
-        // !!双目匹配的时候不需要对左目mvKeys和右目mvKeysRight特征点进行校正。不需要双目极线矫正
+        // !!在这个函数中没有对双目进行校正，双目校正是在外层程序中实现的
         const cv::KeyPoint &kp = mvKeysRight[iR];
         const float &kpY = kp.pt.y;
         // 计算匹配搜索的纵向宽度，尺度越大（层数越高），搜索范围越大
@@ -639,7 +640,7 @@ void Frame::ComputeStereoMatches()
         if(bestDist<ORBmatcher::TH_HIGH)
         {
             // coordinates in image pyramid at keypoint scale
-            // 将最佳匹配的特征点对尺度变换金字塔最底层 (scaleduL, scaledvL) (scaleduR0, )
+            // kpL.pt.x对应金字塔最底层坐标，将最佳匹配的特征点对尺度变换到尺度对应层 (scaleduL, scaledvL) (scaleduR0, )
             const float uR0 = mvKeysRight[bestIdxR].pt.x;
             const float scaleFactor = mvInvScaleFactors[kpL.octave];
             const float scaleduL = round(kpL.pt.x*scaleFactor);

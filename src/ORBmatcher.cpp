@@ -898,6 +898,7 @@ int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F
     return nmatches;
 }
 
+// 投影MapPoints到KeyFrame中，并判断是否有重复的MapPoints
 int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const float th)
 {
     cv::Mat Rcw = pKF->GetRotation();
@@ -938,7 +939,7 @@ int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const
         const float y = p3Dc.at<float>(1)*invz;
 
         const float u = fx*x+cx;
-        const float v = fy*y+cy;
+        const float v = fy*y+cy;// 步骤1：得到MapPoint在图像上的投影坐标
 
         // Point must be inside the image
         if(!pKF->IsInImage(u,v))
@@ -966,7 +967,7 @@ int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const
             continue;
 
         // Search in a radius
-        const float radius = th*pKF->mvScaleFactors[nPredictedLevel];
+        const float radius = th*pKF->mvScaleFactors[nPredictedLevel];// 步骤2：根据MapPoint的深度确定尺度，从而确定搜索范围
 
         const vector<size_t> vIndices = pKF->GetFeaturesInArea(u,v,radius);
 
@@ -979,7 +980,7 @@ int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const
 
         int bestDist = 256;
         int bestIdx = -1;
-        for(vector<size_t>::const_iterator vit=vIndices.begin(), vend=vIndices.end(); vit!=vend; vit++)
+        for(vector<size_t>::const_iterator vit=vIndices.begin(), vend=vIndices.end(); vit!=vend; vit++)// 步骤3：遍历搜索范围内的features
         {
             const size_t idx = *vit;
 
@@ -990,6 +991,7 @@ int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const
             if(kpLevel<nPredictedLevel-1 || kpLevel>nPredictedLevel)
                 continue;
 
+            // 计算MapPoint投影的坐标与这个区域特征点的距离，如果偏差很大，直接跳过特征点匹配
             if(pKF->mvuRight[idx]>=0)
             {
                 // Check reprojection error in stereo
@@ -1020,7 +1022,7 @@ int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const
 
             const int dist = DescriptorDistance(dMP,dKF);
 
-            if(dist<bestDist)
+            if(dist<bestDist)// 找MapPoint在该区域最佳匹配的特征点
             {
                 bestDist = dist;
                 bestIdx = idx;
@@ -1028,12 +1030,12 @@ int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const
         }
 
         // If there is already a MapPoint replace otherwise add new measurement
-        if(bestDist<=TH_LOW)
+        if(bestDist<=TH_LOW)// 找到了MapPoint在该区域最佳匹配的特征点
         {
             MapPoint* pMPinKF = pKF->GetMapPoint(bestIdx);
-            if(pMPinKF)
+            if(pMPinKF)// 如果这个点有对应的MapPoint
             {
-                if(!pMPinKF->isBad())
+                if(!pMPinKF->isBad())// 这个条件是多余的？如果这个MapPoint不是bad，选择哪一个呢？
                 {
                     if(pMPinKF->Observations()>pMP->Observations())
                         pMP->Replace(pMPinKF);
@@ -1041,7 +1043,7 @@ int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const
                         pMPinKF->Replace(pMP);
                 }
             }
-            else
+            else// 如果这个点没有对应的MapPoint
             {
                 pMP->AddObservation(pKF,bestIdx);
                 pKF->AddMapPoint(pMP,bestIdx);

@@ -425,7 +425,7 @@ void KeyFrame::UpdateConnections()
         if(mit->second>nmax)
         {
             nmax=mit->second;
-            pKFmax=mit->first; // 找到对应权重最大的关键帧
+            pKFmax=mit->first; // 找到对应权重最大的关键帧（共视程度最高的关键帧）
         }
         if(mit->second>=th)
         {

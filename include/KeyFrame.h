@@ -190,8 +190,8 @@ public:
     const int mnScaleLevels;
     const float mfScaleFactor;
     const float mfLogScaleFactor;
-    const std::vector<float> mvScaleFactors;
-    const std::vector<float> mvLevelSigma2;
+    const std::vector<float> mvScaleFactors;// 尺度因子，scale^n，scale=1.2，n为层数
+    const std::vector<float> mvLevelSigma2;// 尺度因子的平方
     const std::vector<float> mvInvLevelSigma2;
 
     // Image bounds and calibration

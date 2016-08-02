@@ -75,6 +75,7 @@ cv::Mat FrameDrawer::DrawFrame()
         cvtColor(im,im,CV_GRAY2BGR);
 
     //Draw
+    // 当前帧的特征坐标与初始帧的特征点坐标连成线，形成轨迹
     if(state==Tracking::NOT_INITIALIZED) //INITIALIZING
     {
         for(unsigned int i=0; i<vMatches.size(); i++)
