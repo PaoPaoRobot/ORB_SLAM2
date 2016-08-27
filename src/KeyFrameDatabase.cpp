@@ -260,7 +260,7 @@ vector<KeyFrame*> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F)
                     pKFi->mnRelocWords=0;
                     pKFi->mnRelocQuery=F->mnId;
                     lKFsSharingWords.push_back(pKFi);
-                }，
+                }
                 pKFi->mnRelocWords++;
             }
         }
