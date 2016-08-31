@@ -168,10 +168,11 @@ protected:
     KeyFrameDatabase* mpKeyFrameDB;
 
     // Initalization (only for monocular)
+    // 单目初始器
     Initializer* mpInitializer;
 
     //Local Map
-    KeyFrame* mpReferenceKF;
+    KeyFrame* mpReferenceKF;// 当前关键帧就是参考帧
     std::vector<KeyFrame*> mvpLocalKeyFrames;
     std::vector<MapPoint*> mvpLocalMapPoints;
     

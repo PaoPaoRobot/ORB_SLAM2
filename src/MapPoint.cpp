@@ -118,8 +118,9 @@ KeyFrame* MapPoint::GetReferenceKeyFrame()
 /**
  * @brief 添加观测
  *
- * 记录下能观测到该MapPoint的KeyFrame 和 该MapPoint在KeyFrame中的索引 \n
+ * 记录哪些KeyFrame的那个特征点能观测到该MapPoint \n
  * 并增加观测的相机数目nObs，单目+1，双目或者grbd+2
+ * 这个函数是建立关键帧共视关系的核心函数，能共同观测到某些MapPoints的关键帧是共视关键帧
  * @param pKF KeyFrame
  * @param idx MapPoint在KeyFrame中的索引
  */
@@ -128,7 +129,8 @@ void MapPoint::AddObservation(KeyFrame* pKF, size_t idx)
     unique_lock<mutex> lock(mMutexFeatures);
     if(mObservations.count(pKF))
         return;
-    mObservations[pKF]=idx; // 记录下能观测到该MapPoint的KF和该MapPoint在KF中的索引
+    // 记录下能观测到该MapPoint的KF和该MapPoint在KF中的索引
+    mObservations[pKF]=idx;
 
     if(pKF->mvuRight[idx]>=0)
         nObs+=2; // 双目或者grbd
@@ -224,6 +226,7 @@ void MapPoint::Replace(MapPoint* pMP)
         mpReplaced = pMP;
     }
 
+    // 所有能观测到该MapPoint的keyframe都要替换
     for(map<KeyFrame*,size_t>::iterator mit=obs.begin(), mend=obs.end(); mit!=mend; mit++)
     {
         // Replace measurement in keyframe
@@ -231,7 +234,7 @@ void MapPoint::Replace(MapPoint* pMP)
 
         if(!pMP->IsInKeyFrame(pKF))
         {
-            pKF->ReplaceMapPointMatch(mit->second, pMP);// 让KeyFrame替换掉对应的MapPoint
+            pKF->ReplaceMapPointMatch(mit->second, pMP);// 让KeyFrame用pMP替换掉现有的MapPoint
             pMP->AddObservation(pKF,mit->second);// 让MapPoint替换掉对应的KeyFrame
         }
         else// 这个地方不理解 （wubo???）
@@ -246,6 +249,7 @@ void MapPoint::Replace(MapPoint* pMP)
     mpMap->EraseMapPoint(this);
 }
 
+// 没有经过MapPointCulling检测的MapPoints
 bool MapPoint::isBad()
 {
     unique_lock<mutex> lock(mMutexFeatures);
@@ -257,8 +261,10 @@ bool MapPoint::isBad()
  * @brief Increase Visible
  *
  * Visible表示：
- * 1. 该MapPoint被当前帧观测到
- * 2. 该MapPoint在当前帧的视野中 Frame::isInFrustum() ，可能会被观测到
+ * 1. 该MapPoint在某些帧的视野范围内，通过Frame::isInFrustum()函数判断
+ * 2. 该MapPoint被这些帧观测到，但并不一定能和这些帧的特征点匹配上
+ *    例如：有一个MapPoint（记为M），在某一帧F的视野范围内，
+ *    但并不表明该点M可以和F这一帧的某个特征点能匹配上
  */
 void MapPoint::IncreaseVisible(int n)
 {
@@ -269,7 +275,7 @@ void MapPoint::IncreaseVisible(int n)
 /**
  * @brief Increase Found
  *
- * Found表示该MapPoint被当前帧观测到
+ * 能找到该点的帧数+n，n默认为1
  * @see Tracking::TrackLocalMap()
  */
 void MapPoint::IncreaseFound(int n)
@@ -462,7 +468,7 @@ float MapPoint::GetMaxDistanceInvariance()
 
 //              ____
 // Nearer      /____\     level:n-1 --> dmin
-//            /______\                       d/dmin = 1.2^n-1-m
+//            /______\                       d/dmin = 1.2^(n-1-m)
 //           /________\   level:m   --> d
 //          /__________\                     dmax/d = 1.2^m
 // Farther /____________\ level:0   --> dmax

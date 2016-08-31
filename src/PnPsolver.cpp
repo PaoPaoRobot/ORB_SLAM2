@@ -207,7 +207,7 @@ cv::Mat PnPsolver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInlie
     vbInliers.clear();
     nInliers=0;
 
-    // mRansacMinSet为每次RANSAC需要的特征点数
+    // mRansacMinSet为每次RANSAC需要的特征点数，默认为4组3D-2D对应点
     set_maximum_number_of_correspondences(mRansacMinSet);
 
     // N为所有2D点的个数, mRansacMinInliers为RANSAC迭代过程中最少的inlier数
@@ -218,7 +218,7 @@ cv::Mat PnPsolver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInlie
     }
 
     // mvAllIndices为所有参与PnP的2D点的索引
-    // vAvailableIndices为每次从mvAllIndices中随机挑选mRansacMinSet个进行一次RANSAC
+    // vAvailableIndices为每次从mvAllIndices中随机挑选mRansacMinSet组3D-2D对应点进行一次RANSAC
     vector<size_t> vAvailableIndices;
 
     int nCurrentIterations = 0;
@@ -237,6 +237,7 @@ cv::Mat PnPsolver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInlie
 
             int idx = vAvailableIndices[randi];
 
+            // 将对应的3D-2D压入到pws和us
             add_correspondence(mvP3Dw[idx].x,mvP3Dw[idx].y,mvP3Dw[idx].z,mvP2D[idx].x,mvP2D[idx].y);
 
             vAvailableIndices[idx] = vAvailableIndices.back();
@@ -425,7 +426,7 @@ void PnPsolver::add_correspondence(double X, double Y, double Z, double u, doubl
 void PnPsolver::choose_control_points(void)
 {
   // Take C0 as the reference points centroid:
-  // 第一个控制点：参与PnP计算的参考3D点的几何中心
+  // 步骤1：第一个控制点：参与PnP计算的参考3D点的几何中心
   cws[0][0] = cws[0][1] = cws[0][2] = 0;
   for(int i = 0; i < number_of_correspondences; i++)
     for(int j = 0; j < 3; j++)
@@ -436,6 +437,7 @@ void PnPsolver::choose_control_points(void)
 
 
   // Take C1, C2, and C3 from PCA on the reference points:
+  // 步骤2：计算其它三个控制点，C1, C2, C3通过PCA分解得到
   // 将所有的3D参考点写成矩阵，(number_of_correspondences *　３)的矩阵
   CvMat * PW0 = cvCreateMat(number_of_correspondences, 3, CV_64F);
 
@@ -444,20 +446,20 @@ void PnPsolver::choose_control_points(void)
   CvMat DC      = cvMat(3, 1, CV_64F, dc);
   CvMat UCt     = cvMat(3, 3, CV_64F, uct);
 
-  // 计算第二、三、四个3D控制点
-  // 将存在pws中的参考3D点减去第一个控制点的坐标（相当于把第一个控制点作为原点）, 并存入PW0
+  // 步骤2.1：将存在pws中的参考3D点减去第一个控制点的坐标（相当于把第一个控制点作为原点）, 并存入PW0
   for(int i = 0; i < number_of_correspondences; i++)
     for(int j = 0; j < 3; j++)
       PW0->data.db[3 * i + j] = pws[3 * i + j] - cws[0][j];
 
-  // 类似于齐次线性最小二乘求解的过程，利用SVD分解P'P可以获得P的主分量
+  // 步骤2.2：利用SVD分解P'P可以获得P的主分量
+  // 类似于齐次线性最小二乘求解的过程，
   // PW0的转置乘以PW0
   cvMulTransposed(PW0, &PW0tPW0, 1);
   cvSVD(&PW0tPW0, &DC, &UCt, 0, CV_SVD_MODIFY_A | CV_SVD_U_T);
 
   cvReleaseMat(&PW0);
 
-  // 得到第二、三、四个3D控制点，最后加上之前减掉的第一个控制点这个偏移量
+  // 步骤2.3：得到C1, C2, C3三个3D控制点，最后加上之前减掉的第一个控制点这个偏移量
   for(int i = 1; i < 4; i++) {
     double k = sqrt(dc[i - 1] / number_of_correspondences);
     for(int j = 0; j < 3; j++)
@@ -466,7 +468,8 @@ void PnPsolver::choose_control_points(void)
 }
 
 // 求解四个控制点的系数alphas
-// (a1 a2 a3 a4)' = inverse(cws1 cws2 cws3 cws4) * pws，每一个3D控制点，都有一组alphas与之对应
+// (a2 a3 a4)' = inverse(cws2-cws1 cws3-cws1 cws4-cws1)*(pws-cws1)，a1 = 1-a2-a3-a4
+// 每一个3D控制点，都有一组alphas与之对应
 // cws1 cws2 cws3 cws4为四个控制点的坐标
 // pws为3D参考点的坐标
 void PnPsolver::compute_barycentric_coordinates(void)
@@ -476,6 +479,16 @@ void PnPsolver::compute_barycentric_coordinates(void)
   CvMat CC_inv = cvMat(3, 3, CV_64F, cc_inv);
 
   // 第一个控制点在质心的位置，后面三个控制点减去第一个控制点的坐标（以第一个控制点为原点）
+  // 步骤1：减去质心后得到x y z轴
+  // 
+  // cws的排列 |cws1_x cws1_y cws1_z|  ---> |cws1|
+  //          |cws2_x cws2_y cws2_z|       |cws2|
+  //          |cws3_x cws3_y cws3_z|       |cws3|
+  //          |cws4_x cws4_y cws4_z|       |cws4|
+  //          
+  // cc的排列  |cc2_x cc3_x cc4_x|  --->|cc2 cc3 cc4|
+  //          |cc2_y cc3_y cc4_y|
+  //          |cc2_z cc3_z cc4_z|
   for(int i = 0; i < 3; i++)
     for(int j = 1; j < 4; j++)
       cc[3 * i + j - 1] = cws[j][i] - cws[0][i];
@@ -486,10 +499,11 @@ void PnPsolver::compute_barycentric_coordinates(void)
     double * pi = pws + 3 * i;// pi指向第i个3D点的首地址
     double * a = alphas + 4 * i;// a指向第i个控制点系数alphas的首地址
 
+    // pi[]-cws[0][]表示将pi和步骤1进行相同的平移
     for(int j = 0; j < 3; j++)
       a[1 + j] = ci[3 * j    ] * (pi[0] - cws[0][0]) +
-	               ci[3 * j + 1] * (pi[1] - cws[0][1]) +
-	               ci[3 * j + 2] * (pi[2] - cws[0][2]);
+                 ci[3 * j + 1] * (pi[1] - cws[0][1]) +
+                 ci[3 * j + 2] * (pi[2] - cws[0][2]);
     a[0] = 1.0f - a[1] - a[2] - a[3];
   }
 }
@@ -544,11 +558,12 @@ void PnPsolver::compute_pcs(void)
 
 double PnPsolver::compute_pose(double R[3][3], double t[3])
 {
-  // 获得EPnP算法中的四个控制点
+  // 步骤1：获得EPnP算法中的四个控制点
   choose_control_points();
-  // 计算所有3D点由四个控制点时的系数alphas
+  // 步骤2：计算世界坐标系下每个3D点用4个控制点线性表达时的系数alphas，公式1
   compute_barycentric_coordinates();
 
+  // 步骤3：构造M矩阵，公式(3)(4)-->(5)(6)(7)
   CvMat * M = cvCreateMat(2 * number_of_correspondences, 12, CV_64F);
 
   for(int i = 0; i < number_of_correspondences; i++)
@@ -559,10 +574,10 @@ double PnPsolver::compute_pose(double R[3][3], double t[3])
   CvMat D   = cvMat(12,  1, CV_64F, d);
   CvMat Ut  = cvMat(12, 12, CV_64F, ut);
 
-  // 求解Mx = 0
+  // 步骤3：求解Mx = 0
   // SVD分解M'M
   cvMulTransposed(M, &MtM, 1);
-  cvSVD(&MtM, &D, &Ut, 0, CV_SVD_MODIFY_A | CV_SVD_U_T);//得到ut
+  cvSVD(&MtM, &D, &Ut, 0, CV_SVD_MODIFY_A | CV_SVD_U_T);//得到向量ut
   cvReleaseMat(&M);
 
   double l_6x10[6 * 10], rho[6];

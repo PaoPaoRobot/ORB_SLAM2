@@ -78,7 +78,7 @@ void Map::EraseKeyFrame(KeyFrame *pKF)
 }
 
 /**
- * @brief 设置参考MapPoints
+ * @brief 设置参考MapPoints，将用于DrawMapPoints函数画图
  * @param vpMPs Local MapPoints
  */
 void Map::SetReferenceMapPoints(const vector<MapPoint *> &vpMPs)

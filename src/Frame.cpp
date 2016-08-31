@@ -91,7 +91,7 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
 
     N = mvKeys.size();
 
-    // Undistort双目
+    // Undistort特征点，这里没有对双目进行校正，因为要求输入的图像已经进行极线校正
     UndistortKeyPoints();
 
     // 计算双目间的匹配, 匹配成功的特征点会计算其深度
@@ -486,6 +486,7 @@ void Frame::UndistortKeyPoints()
     mat=mat.reshape(1);
 
     // Fill undistorted keypoint vector
+    // 存储校正后的特征点
     mvKeysUn.resize(N);
     for(int i=0; i<N; i++)
     {
@@ -546,6 +547,7 @@ void Frame::ComputeStereoMatches()
     const int nRows = mpORBextractorLeft->mvImagePyramid[0].rows;
 
     //Assign keypoints to row table
+    // 步骤1：建立特征点搜索范围对应表，一个特征点在一个带状区域内搜索匹配特征点
     // 匹配搜索的时候，不仅仅是在一条横线上搜索，而是在一条横向搜索带上搜索,简而言之，原本每个特征点的纵坐标为1，这里把特征点体积放大，纵坐标占好几行
     // 例如左目图像某个特征点的纵坐标为20，那么在右侧图像上搜索时是在纵坐标为18到22这条带上搜索，搜索带宽度为正负2，搜索带的宽度和特征点所在金字塔层数有关
     // 简单来说，如果纵坐标是20，特征点在图像第20行，那么认为18 19 20 21 22行都有这个特征点
@@ -562,9 +564,10 @@ void Frame::ComputeStereoMatches()
         // !!在这个函数中没有对双目进行校正，双目校正是在外层程序中实现的
         const cv::KeyPoint &kp = mvKeysRight[iR];
         const float &kpY = kp.pt.y;
-        // 计算匹配搜索的纵向宽度，尺度越大（层数越高），搜索范围越大
+        // 计算匹配搜索的纵向宽度，尺度越大（层数越高，距离越近），搜索范围越大
         // 如果特征点在金字塔第一层，则搜索范围为:正负2
-        const float r = 2.0f*mvScaleFactors[mvKeysRight[iR].octave]; // 尺度越大其位置不确定性越高，所以其搜索半径越大
+        // 尺度越大其位置不确定性越高，所以其搜索半径越大
+        const float r = 2.0f*mvScaleFactors[mvKeysRight[iR].octave];
         const int maxr = ceil(kpY+r);
         const int minr = floor(kpY-r);
 
@@ -578,11 +581,13 @@ void Frame::ComputeStereoMatches()
     const float maxD = mbf/minZ;  // 最大视差, 对应最小深度 mbf/minZ = mbf/mb = mbf/(mbf/fx) = fx (wubo???)
 
     // For each left keypoint search a match in the right image
-    // 为左图的每一个特征点在右图中找到匹配点
     vector<pair<int, int> > vDistIdx;
     vDistIdx.reserve(N);
 
-    // 对左目相机每个特征点，通过描述子的距离找到匹配点, 再通过SAD做亚像素匹配
+    // 步骤2：对左目相机每个特征点，通过描述子在右目带状搜索区域找到匹配点, 再通过SAD做亚像素匹配
+    // 注意：这里是校正前的mvKeys，而不是校正后的mvKeysUn
+    // KeyFrame::UnprojectStereo和Frame::UnprojectStereo函数中不一致
+    // 这里是不是应该对校正后特征点求深度呢？(wubo???)
     for(int iL=0; iL<N; iL++)
     {
         const cv::KeyPoint &kpL = mvKeys[iL];
@@ -609,7 +614,7 @@ void Frame::ComputeStereoMatches()
         const cv::Mat &dL = mDescriptors.row(iL);
 
         // Compare descriptor to right keypoints
-        // 遍历右目所有可能的匹配点，找出最佳匹配点（描述子距离最小）
+        // 步骤2.1：遍历右目所有可能的匹配点，找出最佳匹配点（描述子距离最小）
         for(size_t iC=0; iC<vCandidates.size(); iC++)
         {
             const size_t iR = vCandidates[iC];
@@ -636,7 +641,7 @@ void Frame::ComputeStereoMatches()
         // 最好的匹配的匹配误差存在bestDist，匹配点位置存在bestIdxR中
 
         // Subpixel match by correlation
-        // 通过SAD匹配提高像素匹配修正量bestincR，做抛物线拟合找谷底得到亚像素匹配deltaR
+        // 步骤2.2：通过SAD匹配提高像素匹配修正量bestincR
         if(bestDist<ORBmatcher::TH_HIGH)
         {
             // coordinates in image pyramid at keypoint scale
@@ -686,6 +691,7 @@ void Frame::ComputeStereoMatches()
                 continue;
 
             // Sub-pixel match (Parabola fitting)
+            // 步骤2.3：做抛物线拟合找谷底得到亚像素匹配deltaR
             // (bestincR,dist) (bestincR-1,dist) (bestincR+1,dist)三个点拟合出抛物线
             // bestincR+deltaR就是抛物线谷底的位置，相对SAD匹配出的最小值bestincR的修正量为deltaR
             const float dist1 = vDists[L+bestincR-1];
@@ -723,6 +729,7 @@ void Frame::ComputeStereoMatches()
         }
     }
 
+    // 步骤3：剔除SAD匹配偏差较大的匹配特征点
     // 前面SAD匹配只判断滑动窗口中是否有局部最小值，这里通过对比剔除SAD匹配偏差比较大的特征点的深度
     sort(vDistIdx.begin(),vDistIdx.end()); // 根据所有匹配对的SAD偏差进行排序, 距离由小到大
     const float median = vDistIdx[vDistIdx.size()/2].first;
@@ -772,6 +779,11 @@ void Frame::ComputeStereoFromRGBD(const cv::Mat &imDepth)
  */
 cv::Mat Frame::UnprojectStereo(const int &i)
 {
+    // KeyFrame::UnprojectStereo
+    // mvDepth是在ComputeStereoMatches函数中求取的
+    // mvDepth对应的校正前的特征点，可这里却是对校正后特征点反投影
+    // KeyFrame::UnprojectStereo中是对校正前的特征点mvKeys反投影
+    // 在ComputeStereoMatches函数中应该对校正后的特征点求深度？？ (wubo???)
     const float z = mvDepth[i];
     if(z>0)
     {

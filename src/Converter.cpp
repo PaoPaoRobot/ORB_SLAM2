@@ -107,6 +107,7 @@ cv::Mat Converter::toCvSE3(const Eigen::Matrix<double,3,3> &R, const Eigen::Matr
     return cvMat.clone();
 }
 
+// 将OpenCVS中Mat类型的向量转化为Eigen中Matrix类型的变量
 Eigen::Matrix<double,3,1> Converter::toVector3d(const cv::Mat &cvVector)
 {
     Eigen::Matrix<double,3,1> v;

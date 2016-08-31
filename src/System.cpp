@@ -1,7 +1,7 @@
 /**
 * This file is part of ORB-SLAM2.
 *
-* Copyright (C) 2014-2016 Ra�l Mur-Artal <raulmur at unizar dot es> (University of Zaragoza)
+* Copyright (C) 2014-2016 Raúl Mur-Artal <raulmur at unizar dot es> (University of Zaragoza)
 * For more information see <https://github.com/raulmur/ORB_SLAM2>
 *
 * ORB-SLAM2 is free software: you can redistribute it and/or modify
@@ -36,7 +36,7 @@ namespace ORB_SLAM2
 
 System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor,
                const bool bUseViewer):mSensor(sensor),mbReset(false),mbActivateLocalizationMode(false),
-        mbDeactivateLocalizationMode(false)
+               mbDeactivateLocalizationMode(false)
 {
     // Output welcome message
     cout << endl <<
@@ -145,7 +145,7 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const
 				std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
 
-            mpTracker->InformOnlyTracking(true);
+            mpTracker->InformOnlyTracking(true);// 定位时，只跟踪
             mbActivateLocalizationMode = false;
         }
         if(mbDeactivateLocalizationMode)
@@ -191,7 +191,7 @@ cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const doub
 				std::this_thread::sleep_for(std::chrono::milliseconds(1));
 			}
 
-            mpTracker->InformOnlyTracking(true);
+            mpTracker->InformOnlyTracking(true);// 定位时，只跟踪
             mbActivateLocalizationMode = false;
         }
         if(mbDeactivateLocalizationMode)
@@ -234,17 +234,17 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
             while(!mpLocalMapper->isStopped())
             {
                 //usleep(1000);
-				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
 
-            mpTracker->InformOnlyTracking(true);
-            mbActivateLocalizationMode = false;
+            mpTracker->InformOnlyTracking(true);// 定位时，只跟踪
+            mbActivateLocalizationMode = false;// 防止重复执行
         }
         if(mbDeactivateLocalizationMode)
         {
             mpTracker->InformOnlyTracking(false);
             mpLocalMapper->Release();
-            mbDeactivateLocalizationMode = false;
+            mbDeactivateLocalizationMode = false;// 防止重复执行
         }
     }
 

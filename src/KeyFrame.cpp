@@ -296,7 +296,6 @@ set<MapPoint*> KeyFrame::GetMapPoints()
     set<MapPoint*> s;
     for(size_t i=0, iend=mvpMapPoints.size(); i<iend; i++)
     {
-        // mvpMapPoints[i]指向的内存为空，不应该把这个指针从mvpMapPoints中删掉？ （wubo???）
         if(!mvpMapPoints[i])
             continue;
         MapPoint* pMP = mvpMapPoints[i];
@@ -360,7 +359,7 @@ MapPoint* KeyFrame::GetMapPoint(const size_t &idx)
 /**
  * @brief 更新图的连接
  * 
- * 1. 首先获得该关键帧的所有3d点，统计观测到这些3d点的每个关键与其它所有关键帧之间的共视程度
+ * 1. 首先获得该关键帧的所有MapPoint点，统计观测到这些3d点的每个关键与其它所有关键帧之间的共视程度
  *    对每一个找到的关键帧，建立一条边，边的权重是该关键帧与当前关键帧公共3d点的个数。
  * 2. 并且该权重必须大于一个阈值，如果没有超过该阈值的权重，那么就只保留权重最大的边（与其它关键帧的共视程度比较高）
  * 3. 对这些连接按照权重从大到小进行排序，以方便将来的处理
@@ -368,6 +367,8 @@ MapPoint* KeyFrame::GetMapPoint(const size_t &idx)
  */
 void KeyFrame::UpdateConnections()
 {
+    // 在没有执行这个函数前，关键帧只和MapPoints之间有连接关系，这个函数可以更新关键帧之间的连接关系
+
     //===============1==================================
     map<KeyFrame*,int> KFcounter; // 关键帧-权重，权重为其它关键帧与当前关键帧共视3d点的个数
 
@@ -393,7 +394,7 @@ void KeyFrame::UpdateConnections()
         if(pMP->isBad())
             continue;
 
-        // 对于每一个3d MapPoint点，observations记录了可以观测到该3D的所有关键帧
+        // 对于每一个MapPoint点，observations记录了可以观测到该MapPoint的所有关键帧
         map<KeyFrame*,size_t> observations = pMP->GetObservations();
 
         for(map<KeyFrame*,size_t>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
@@ -410,8 +411,8 @@ void KeyFrame::UpdateConnections()
         return;
 
     //===============2==================================
-    //If the counter is greater than threshold add connection
-    //In case no keyframe counter is over threshold add the one with maximum counter
+    // If the counter is greater than threshold add connection
+    // In case no keyframe counter is over threshold add the one with maximum counter
     int nmax=0;
     KeyFrame* pKFmax=NULL;
     int th = 15;
@@ -425,14 +426,16 @@ void KeyFrame::UpdateConnections()
         if(mit->second>nmax)
         {
             nmax=mit->second;
-            pKFmax=mit->first; // 找到对应权重最大的关键帧（共视程度最高的关键帧）
+            // 找到对应权重最大的关键帧（共视程度最高的关键帧）
+            pKFmax=mit->first;
         }
         if(mit->second>=th)
         {
             // 对应权重需要大于阈值，对这些关键帧建立连接
             vPairs.push_back(make_pair(mit->second,mit->first));
             // 更新KFcounter中该关键帧的mConnectedKeyFrameWeights
-            (mit->first)->AddConnection(this,mit->second);//更新其它KeyFrame的mConnectedKeyFrameWeights，更新其它关键帧与当前帧的连接权重
+            // 更新其它KeyFrame的mConnectedKeyFrameWeights，更新其它关键帧与当前帧的连接权重
+            (mit->first)->AddConnection(this,mit->second);
         }
     }
 
@@ -544,6 +547,8 @@ void KeyFrame::SetErase()
         }
     }
 
+    // 这个地方是不是应该：(!mbToBeErased)，(wubo???)
+    // SetBadFlag函数就是将mbToBeErased置为true，mbToBeErased就表示该KeyFrame被擦除了
     if(mbToBeErased)
     {
         SetBadFlag();
@@ -556,7 +561,7 @@ void KeyFrame::SetBadFlag()
         unique_lock<mutex> lock(mMutexConnections);
         if(mnId==0)
             return;
-        else if(mbNotErase)
+        else if(mbNotErase)// mbNotErase表示不应该擦除该KeyFrame，于是把mbToBeErased置为true，表示已经擦除了，其实没有擦除
         {
             mbToBeErased = true;
             return;
@@ -744,6 +749,10 @@ cv::Mat KeyFrame::UnprojectStereo(int i)
     if(z>0)
     {
         // 由2维图像反投影到相机坐标系
+        // mvDepth是在ComputeStereoMatches函数中求取的
+        // mvDepth对应的校正前的特征点，因此这里对校正前特征点反投影
+        // 可在Frame::UnprojectStereo中却是对校正后的特征点mvKeysUn反投影
+        // 在ComputeStereoMatches函数中应该对校正后的特征点求深度？？ (wubo???)
         const float u = mvKeys[i].pt.x;
         const float v = mvKeys[i].pt.y;
         const float x = (u-cx)*z*invfx;
