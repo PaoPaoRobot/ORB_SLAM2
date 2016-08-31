@@ -576,7 +576,7 @@ void Frame::ComputeStereoMatches()
     }
 
     // Set limits for search
-    const float minZ = mb;        // NOTE bug mb没有初始化，在构造函数中mb的赋值放在了ComputeStereoMatches函数的后面  (wubo???)
+    const float minZ = mb;        // NOTE bug mb没有初始化，在构造函数中mb的赋值放在了ComputeStereoMatches函数的后面
     const float minD = -3;        // 最小视差, 设置为0即可
     const float maxD = mbf/minZ;  // 最大视差, 对应最小深度 mbf/minZ = mbf/mb = mbf/(mbf/fx) = fx (wubo???)
 
