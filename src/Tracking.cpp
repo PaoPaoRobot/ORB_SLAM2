@@ -364,9 +364,8 @@ void Tracking::Track()
             if(mState==OK)
             {
                 // Local Mapping might have changed some MapPoints tracked in last frame
-                // 检查并更新上一帧的MapPoints
-                // 对于双目和RGBD，UpdateLastFrame函数会为上一帧添加MapPoints
-                // 上一帧的MapPoints主要是用来SearchByProjection时加快匹配
+                // 检查并更新上一帧被替换的MapPoints
+                // 更新Fuse函数和SearchAndFuse函数替换的MapPoints
                 CheckReplacedInLastFrame();
 
                 // 步骤2.1：跟踪上一帧或者参考帧或者重定位
@@ -541,12 +540,12 @@ void Tracking::Track()
             mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.mTcw);
 
             // Clean temporal point matches
-            // 步骤2.4：清除当前帧观测不到的那些map中的3D点
+            // 步骤2.4：清除UpdateLastFrame中为当前帧临时添加的MapPoints
             for(int i=0; i<mCurrentFrame.N; i++)
             {
                 MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
                 if(pMP)
-                    // 主要用于排除UpdateLastFrame函数中为了跟踪增加的MapPoints
+                    // 排除UpdateLastFrame函数中为了跟踪增加的MapPoints
                     if(pMP->Observations()<1)
                     {
                         mCurrentFrame.mvbOutlier[i] = false;
@@ -556,6 +555,7 @@ void Tracking::Track()
 
             // Delete temporal MapPoints
             // 步骤2.5：清除临时的MapPoints，这些MapPoints在TrackWithMotionModel的UpdateLastFrame函数里生成（仅双目和rgbd）
+            // 步骤2.4中只是在当前帧中将这些MapPoints剔除，这里从MapPoints数据库中删除
             // 这里生成的仅仅是为了提高双目或rgbd摄像头的帧间跟踪效果，用完以后就扔了，没有添加到地图中
             for(list<MapPoint*>::iterator lit = mlpTemporalPoints.begin(), lend =  mlpTemporalPoints.end(); lit!=lend; lit++)
             {

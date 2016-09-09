@@ -700,14 +700,9 @@ bool Initializer::ReconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv:
     return false;
 }
 
+// H矩阵分解常见有两种方法：Faugeras SVD-based decomposition 和 Zhang SVD-based decomposition
 // 参考文献：Motion and structure from motion in a piecewise plannar environment
-// https://zh.wikipedia.org/wiki/%E5%8D%95%E5%BA%94%E6%80%A7
-// H = (R + (1/d)tN') d为相机到平面的距离，N为平面的法向量
-// H'H = V sigma V'   V = |v1 v2 v3| sigma = diag(d1 d2 d3)
-// u1 = (sqrt(1-d1^2v1)+sqrt(d1^2-v3))/sqrt(d1^2-d3^2)
-// u2 = (sqrt(1-d1^2v1)-sqrt(d1^2-v3))/sqrt(d1^2-d3^2)
-// U1 = |v2, u1, v2叉乘u1|  W1 = |Hv2, Hu1, (Hv2)叉乘Hu1|
-// U2 = |v2, u2, v2叉乘u1|  W1 = |Hv2, Hu2, (Hv2)叉乘Hu2|
+// 这篇参考文献和下面的代码使用了Faugeras SVD-based decomposition算法
 
 /**
  * @brief 从H恢复R t
@@ -736,7 +731,6 @@ bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv:
     cv::SVD::compute(A,w,U,Vt,cv::SVD::FULL_UV);
     V=Vt.t();
 
-    // 参考文献的公式8
     float s = cv::determinant(U)*cv::determinant(Vt);
 
     float d1 = w.at<float>(0);
@@ -755,20 +749,20 @@ bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv:
     vn.reserve(8);
 
     //n'=[x1 0 x3] 4 posibilities e1=e3=1, e1=1 e3=-1, e1=-1 e3=1, e1=e3=-1
-    // 参考文献公式12
+    // 法向量n'= [x1 0 x3] 对应ppt的公式17
     float aux1 = sqrt((d1*d1-d2*d2)/(d1*d1-d3*d3));
     float aux3 = sqrt((d2*d2-d3*d3)/(d1*d1-d3*d3));
     float x1[] = {aux1,aux1,-aux1,-aux1};
     float x3[] = {aux3,-aux3,aux3,-aux3};
 
     //case d'=d2
-    // 参考文献公式13
+    // 计算ppt中公式19
     float aux_stheta = sqrt((d1*d1-d2*d2)*(d2*d2-d3*d3))/((d1+d3)*d2);
 
     float ctheta = (d2*d2+d1*d3)/((d1+d3)*d2);
-    // 对应的矩阵
     float stheta[] = {aux_stheta, -aux_stheta, -aux_stheta, aux_stheta};
 
+    // 计算旋转矩阵 R‘，计算ppt中公式18
     //      | ctheta      0   -aux_stheta|       | aux1|
     // Rp = |    0        1       0      |  tp = |  0  |
     //      | aux_stheta  0    ctheta    |       |-aux3|
@@ -818,11 +812,13 @@ bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv:
     }
 
     //case d'=-d2
+    // 计算ppt中公式22
     float aux_sphi = sqrt((d1*d1-d2*d2)*(d2*d2-d3*d3))/((d1-d3)*d2);
 
     float cphi = (d1*d3-d2*d2)/((d1-d3)*d2);
     float sphi[] = {aux_sphi, -aux_sphi, -aux_sphi, aux_sphi};
 
+    // 计算旋转矩阵 R‘，计算ppt中公式21
     for(int i=0; i<4; i++)
     {
         cv::Mat Rp=cv::Mat::eye(3,3,CV_32F);
@@ -865,6 +861,7 @@ bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv:
 
     // Instead of applying the visibility constraints proposed in the Faugeras' paper (which could fail for points seen with low parallax)
     // We reconstruct all hypotheses and check in terms of triangulated points and parallax
+    // d'=d2和d'=-d2分别对应8组(R t)
     for(size_t i=0; i<8; i++)
     {
         float parallaxi;

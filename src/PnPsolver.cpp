@@ -54,12 +54,11 @@
 // http://docs.ros.org/fuerte/api/re_vision/html/classepnp.html
 // 如果不理解，可以看看中文的："摄像机位姿的高精度快速求解" "摄像头位姿的加权线性算法"
 
-// PnP求解其实就是求解相机的外参(R t)，即从世界坐标系到相机坐标系的变换。
-// 如果把所有的3D点经过(R t)变换到相机坐标系，然后利用重投影误差建立优化函数(非线性)，然后只能迭代用优化的方法求解，则运算量很大。
-// 而EPnP的思想是，将所有的3D点用四个虚拟的控制点来表示，
-// 相当于在世界坐标系和相机坐标系之外又建立了一个由四个控制点构成的坐标系，
-// 利用重投影误差结合最小二乘先求解出这四个控制点，
-// 然后通过世界坐标系3D点到相机坐标系下3D点的投影误差恢复出R,t
+// PnP求解：已知世界坐标系下的3D点与图像坐标系对应的2D点，求解相机的外参(R t)，即从世界坐标系到相机坐标系的变换。
+// 而EPnP的思想是：
+// 将世界坐标系所有的3D点用四个虚拟的控制点来表示，将图像上对应的特征点转化为相机坐标系下的四个控制点
+// 根据世界坐标系下的四个控制点与相机坐标系下对应的四个控制点（与世界坐标系下四个控制点有相同尺度）即可恢复出(R t)
+
 
 //                                   |x|
 //   |u|   |fx r  u0||r11 r12 r13 t1||y|
@@ -79,7 +78,7 @@
 // sigma(alphas_j * fy * Xctrl_c_j) + alphas_j * (v0-u)*Zctrl_c_j = 0
 
 // step4:将step3中的12未知参数（4个控制点*3维参考点坐标）提成列向量
-// Mx = 0,计算得到初始的解x后可以用Gauss-Newton来提纯
+// Mx = 0,计算得到初始的解x后可以用Gauss-Newton来提纯得到四个相机坐标系的控制点
 
 // step5:根据得到的p_w和对应的p_c，最小化重投影误差即可求解出R t
 
@@ -590,6 +589,10 @@ double PnPsolver::compute_pose(double R[3][3], double t[3])
   double Betas[4][4], rep_errors[4];
   double Rs[4][3][3], ts[4][3];
 
+  // 不管什么情况，都假设论文中N=4，并求解部分betas（如果全求解出来会有冲突）
+  // 通过优化得到剩下的betas
+  // 最后计算R t
+
   // EPnP论文公式10 15
   find_betas_approx_1(&L_6x10, &Rho, Betas[1]);
   gauss_newton(&L_6x10, &Rho, Betas[1]);
@@ -655,7 +658,7 @@ double PnPsolver::reprojection_error(const double R[3][3], const double t[3])
   return sum2 / number_of_correspondences;
 }
 
-// 从Pose中分解得到R t
+// 根据世界坐标系下的四个控制点与机体坐标下对应的四个控制点（和世界坐标系下四个控制点相同尺度），求取R t
 void PnPsolver::estimate_R_and_t(double R[3][3], double t[3])
 {
   double pc0[3], pw0[3];

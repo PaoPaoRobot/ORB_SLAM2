@@ -355,8 +355,9 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
     // Predict scale in the image
     // V-D 4) 根据深度预测尺度（对应特征点在一层）
     const int nPredictedLevel = pMP->PredictScale(dist,mfLogScaleFactor);
-	if(nPredictedLevel>=mnScaleLevels || nPredictedLevel<0)
-		return false;
+    // 这两句是佳佳加上的
+	// if(nPredictedLevel>=mnScaleLevels || nPredictedLevel<0)
+	//	return false;
 
     // Data used by the tracking
     // 标记该点将来要被投影
