@@ -196,9 +196,7 @@ void LocalMapping::ProcessNewKeyFrame()
         {
             if(!pMP->isBad())
             {
-                // 对于双目或RGBD，会通过UpdateLastFrame函数临时生成一些MapPoint用于跟踪，
-                // 但这些MapPoints没有任何属性，和普通3D点一样，主要目的是提高跟踪成功率
-                // 感觉这段代码应该放在UpdateLastFrame函数中进行
+                // 为当前帧在tracking过重跟踪到的MapPoints更新属性
                 if(!pMP->IsInKeyFrame(mpCurrentKeyFrame))
                 {
                     // 添加观测
