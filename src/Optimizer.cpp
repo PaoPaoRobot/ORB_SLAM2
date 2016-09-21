@@ -912,7 +912,7 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
     // Setup optimizer
     // 步骤1：构造优化器
     g2o::SparseOptimizer optimizer;
-    optimizer.setVerbose(false);// 干啥的？
+    optimizer.setVerbose(false);
     // 指定线性方程求解器使用Eigen的块求解器
     g2o::BlockSolver_7_3::LinearSolverType * linearSolver =
            new g2o::LinearSolverEigen<g2o::BlockSolver_7_3::PoseMatrixType>();

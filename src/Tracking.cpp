@@ -566,7 +566,7 @@ void Tracking::Track()
             mlpTemporalPoints.clear();
 
             // Check if we need to insert a new keyframe
-            // 步骤2.6：检测并插入关键帧
+            // 步骤2.6：检测并插入关键帧，对于双目会产生新的MapPoints
             if(NeedNewKeyFrame())
                 CreateNewKeyFrame();
 
@@ -1042,7 +1042,8 @@ void Tracking::UpdateLastFrame()
     if(mnLastKeyFrameId==mLastFrame.mnId || mSensor==System::MONOCULAR)
         return;
 
-    // 步骤2：对于双目或rgbd摄像头，为上一帧生成新的MapPoints
+    // 步骤2：对于双目或rgbd摄像头，为上一帧临时生成新的MapPoints
+    // 注意这些MapPoints不加入到Map中，在tracking的最后会删除
     // 跟踪过程中需要将将上一帧的MapPoints投影到当前帧可以缩小匹配范围，加快当前帧与上一帧进行特征点匹配
 
     // Create "visual odometry" MapPoints
@@ -1267,7 +1268,7 @@ bool Tracking::TrackLocalMap()
  */
 bool Tracking::NeedNewKeyFrame()
 {
-    // 步骤0：如果用户在界面上选择重定位，那么将不插入关键帧
+    // 步骤1：如果用户在界面上选择重定位，那么将不插入关键帧
     // 由于插入关键帧过程中会生成MapPoint，因此用户选择重定位后地图上的点云和关键帧都不会再增加
     if(mbOnlyTracking)
         return false;
@@ -1290,8 +1291,8 @@ bool Tracking::NeedNewKeyFrame()
         return false;
 
     // Tracked MapPoints in the reference keyframe
-    // 步骤3：得到匹配上参考帧的MapPoints数量
-	// 在TrackLocalMap步骤中找到的匹配地图点最多的帧设置为参考关键帧
+    // 步骤3：得到参考关键帧跟踪到的MapPoints数量
+	// 在UpdateLocalKeyFrames函数中会将与当前关键帧共视程度最高的关键帧设定为当前帧的参考关键帧
     int nMinObs = 3;
     if(nKFs<=2)
         nMinObs=2;

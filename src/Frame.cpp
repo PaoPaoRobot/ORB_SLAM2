@@ -355,9 +355,9 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
     // Predict scale in the image
     // V-D 4) 根据深度预测尺度（对应特征点在一层）
     const int nPredictedLevel = pMP->PredictScale(dist,mfLogScaleFactor);
-    // 这两句是佳佳加上的
-	// if(nPredictedLevel>=mnScaleLevels || nPredictedLevel<0)
-	//	return false;
+    // 下面两句是佳佳加上的
+	if(nPredictedLevel>=mnScaleLevels || nPredictedLevel<0)
+		return false;
 
     // Data used by the tracking
     // 标记该点将来要被投影
@@ -577,7 +577,7 @@ void Frame::ComputeStereoMatches()
     }
 
     // Set limits for search
-    const float minZ = mb;        // NOTE bug mb没有初始化，在构造函数中mb的赋值放在了ComputeStereoMatches函数的后面  (wubo???)
+    const float minZ = mb;        // NOTE bug mb没有初始化，mb的赋值在构造函数中放在ComputeStereoMatches函数的后面
     const float minD = -3;        // 最小视差, 设置为0即可
     const float maxD = mbf/minZ;  // 最大视差, 对应最小深度 mbf/minZ = mbf/mb = mbf/(mbf/fx) = fx (wubo???)
 
