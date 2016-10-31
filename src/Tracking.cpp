@@ -262,7 +262,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const d
 
     // 步骤2：将深度相机的disparity转为Depth
     if((fabs(mDepthMapFactor-1.0f)>1e-5) || imDepth.type()!=CV_32F)
-    imDepth.convertTo(imDepth,CV_32F,mDepthMapFactor);
+        imDepth.convertTo(imDepth,CV_32F,mDepthMapFactor);
 
     // 步骤3：构造Frame
     mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
@@ -1039,7 +1039,7 @@ void Tracking::UpdateLastFrame()
     mLastFrame.SetPose(Tlr*pRef->GetPose()); // Tlr*Trw = Tlw 1:last r:reference w:world
 
     // 如果上一帧为关键帧，或者单目的情况，则退出
-    if(mnLastKeyFrameId==mLastFrame.mnId || mSensor==System::MONOCULAR || !mbOnlyTracking)
+    if(mnLastKeyFrameId==mLastFrame.mnId || mSensor==System::MONOCULAR)
         return;
 
     // 步骤2：对于双目或rgbd摄像头，为上一帧临时生成新的MapPoints
@@ -1127,7 +1127,7 @@ bool Tracking::TrackWithMotionModel()
     ORBmatcher matcher(0.9,true);
 
     // Update last frame pose according to its reference keyframe
-    // Create "visual odometry" points if in Localization Mode
+    // Create "visual odometry" points
     // 步骤1：对于双目或rgbd摄像头，根据深度值为上一关键帧生成新的MapPoints
     // （跟踪过程中需要将当前帧与上一帧进行特征点匹配，将上一帧的MapPoints投影到当前帧可以缩小匹配范围）
     // 在跟踪过程中，去除outlier的MapPoint，如果不及时增加MapPoint会逐渐减少
@@ -1302,26 +1302,36 @@ bool Tracking::NeedNewKeyFrame()
     // 步骤4：查询局部地图管理器是否繁忙
     bool bLocalMappingIdle = mpLocalMapper->AcceptKeyFrames();
 
-	// 步骤5
-    // Check how many "close" points are being tracked and how many could be potentially created.
-    int nNonTrackedClose = 0;
-    int nTrackedClose= 0;
-    if(mSensor!=System::MONOCULAR)
+    // Stereo & RGB-D: Ratio of close "matches to map"/"total matches"
+    // "total matches = matches to map + visual odometry matches"
+    // Visual odometry matches will become MapPoints if we insert a keyframe.
+    // This ratio measures how many MapPoints we could create if we insert a keyframe.
+    // 步骤5：对于双目或RGBD摄像头，统计总的可以添加的MapPoints数量和跟踪到地图中的MapPoints数量
+    int nMap = 0;
+    int nTotal= 0;
+    if(mSensor!=System::MONOCULAR)// 双目或rgbd
     {
         for(int i =0; i<mCurrentFrame.N; i++)
         {
             if(mCurrentFrame.mvDepth[i]>0 && mCurrentFrame.mvDepth[i]<mThDepth)
             {
-                if(mCurrentFrame.mvpMapPoints[i] && !mCurrentFrame.mvbOutlier[i])
-                    nTrackedClose++;
-                else
-                    nNonTrackedClose++;
+                nTotal++;// 总的可以添加mappoints数
+                if(mCurrentFrame.mvpMapPoints[i])
+                    if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)
+                        nMap++;// 被关键帧观测到的mappoints数，即观测到地图中的MapPoints数量
             }
         }
     }
+    else
+    {
+        // There are no visual odometry matches in the monocular case
+        nMap=1;
+        nTotal=1;
+    }
 
-    bool bNeedToInsertClose = (nTrackedClose<100) && (nNonTrackedClose>70);
+    const float ratioMap = (float)nMap/(float)(std::max(1,nTotal));
 
+    // 步骤6：决策是否需要插入关键帧
     // Thresholds
     // 设定inlier阈值，和之前帧特征点匹配的inlier比例
     float thRefRatio = 0.75f;
@@ -1329,6 +1339,11 @@ bool Tracking::NeedNewKeyFrame()
         thRefRatio = 0.4f;// 关键帧只有一帧，那么插入关键帧的阈值设置很低
     if(mSensor==System::MONOCULAR)
         thRefRatio = 0.9f;
+
+    // MapPoints中和地图关联的比例阈值
+    float thMapRatio = 0.35f;
+    if(mnMatchesInliers>300)
+        thMapRatio = 0.20f;
 
     // Condition 1a: More than "MaxFrames" have passed from last keyframe insertion
     // 很长时间没有插入关键帧
@@ -1338,10 +1353,10 @@ bool Tracking::NeedNewKeyFrame()
     const bool c1b = (mCurrentFrame.mnId>=mnLastKeyFrameId+mMinFrames && bLocalMappingIdle);
     // Condition 1c: tracking is weak
     // 跟踪要跪的节奏，0.25和0.3是一个比较低的阈值
-    const bool c1c =  mSensor!=System::MONOCULAR && (mnMatchesInliers<nRefMatches*0.25 || bNeedToInsertClose) ;
+    const bool c1c =  mSensor!=System::MONOCULAR && (mnMatchesInliers<nRefMatches*0.25 || ratioMap<0.3f) ;
     // Condition 2: Few tracked points compared to reference keyframe. Lots of visual odometry compared to map matches.
     // 阈值比c1c要高，与之前参考帧（最近的一个关键帧）重复度不是太高
-    const bool c2 = ((mnMatchesInliers<nRefMatches*thRefRatio|| bNeedToInsertClose) && mnMatchesInliers>15);
+    const bool c2 = ((mnMatchesInliers<nRefMatches*thRefRatio || ratioMap<thMapRatio) && mnMatchesInliers>15);
 
     if((c1a||c1b||c1c)&&c2)
     {

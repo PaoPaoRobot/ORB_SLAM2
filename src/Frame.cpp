@@ -712,7 +712,7 @@ void Frame::ComputeStereoMatches()
             // 这里是disparity，根据它算出depth
             float disparity = (uL-bestuR);
 
-            if(disparity>=minD && disparity<maxD)
+            if(disparity>=minD && disparity<maxD) // 最后判断视差是否在范围内
             {
                 if(disparity<=0)
                 {
