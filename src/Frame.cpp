@@ -86,11 +86,10 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
     threadLeft.join();
     threadRight.join();
 
-    if(mvKeys.empty())
-        return;
-
     N = mvKeys.size();
 
+    if(mvKeys.empty())
+        return;
     // Undistort特征点，这里没有对双目进行校正，因为要求输入的图像已经进行极线校正
     UndistortKeyPoints();
 
@@ -354,10 +353,7 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
 
     // Predict scale in the image
     // V-D 4) 根据深度预测尺度（对应特征点在一层）
-    const int nPredictedLevel = pMP->PredictScale(dist,mfLogScaleFactor);
-    // 下面两句是佳佳加上的
-	if(nPredictedLevel>=mnScaleLevels || nPredictedLevel<0)
-		return false;
+    const int nPredictedLevel = pMP->PredictScale(dist,this);
 
     // Data used by the tracking
     // 标记该点将来要被投影
@@ -545,6 +541,8 @@ void Frame::ComputeStereoMatches()
     mvuRight = vector<float>(N,-1.0f);
     mvDepth = vector<float>(N,-1.0f);
 
+    const int thOrbDist = (ORBmatcher::TH_HIGH+ORBmatcher::TH_LOW)/2;
+
     const int nRows = mpORBextractorLeft->mvImagePyramid[0].rows;
 
     //Assign keypoints to row table
@@ -578,7 +576,7 @@ void Frame::ComputeStereoMatches()
 
     // Set limits for search
     const float minZ = mb;        // NOTE bug mb没有初始化，mb的赋值在构造函数中放在ComputeStereoMatches函数的后面
-    const float minD = -3;        // 最小视差, 设置为0即可
+    const float minD = 0;        // 最小视差, 设置为0即可
     const float maxD = mbf/minZ;  // 最大视差, 对应最小深度 mbf/minZ = mbf/mb = mbf/(mbf/fx) = fx (wubo???)
 
     // For each left keypoint search a match in the right image
@@ -643,7 +641,7 @@ void Frame::ComputeStereoMatches()
 
         // Subpixel match by correlation
         // 步骤2.2：通过SAD匹配提高像素匹配修正量bestincR
-        if(bestDist<ORBmatcher::TH_HIGH)
+        if(bestDist<thOrbDist)
         {
             // coordinates in image pyramid at keypoint scale
             // kpL.pt.x对应金字塔最底层坐标，将最佳匹配的特征点对尺度变换到尺度对应层 (scaleduL, scaledvL) (scaleduR0, )
@@ -714,7 +712,7 @@ void Frame::ComputeStereoMatches()
             // 这里是disparity，根据它算出depth
             float disparity = (uL-bestuR);
 
-            if(disparity>=0 && disparity<maxD) // 最后判断视差是否在范围内
+            if(disparity>=minD && disparity<maxD)
             {
                 if(disparity<=0)
                 {

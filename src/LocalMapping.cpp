@@ -196,7 +196,8 @@ void LocalMapping::ProcessNewKeyFrame()
         {
             if(!pMP->isBad())
             {
-                // 为当前帧在tracking过重跟踪到的MapPoints更新属性
+                // 非当前帧生成的MapPoints
+				// 为当前帧在tracking过程跟踪到的MapPoints更新属性
                 if(!pMP->IsInKeyFrame(mpCurrentKeyFrame))
                 {
                     // 添加观测
@@ -208,6 +209,7 @@ void LocalMapping::ProcessNewKeyFrame()
                 }
                 else // this can only happen for new stereo points inserted by the Tracking
                 {
+                    // 当前帧生成的MapPoints
                     // 将双目或RGBD跟踪过程中新插入的MapPoints放入mlpRecentAddedMapPoints，等待检查
                     // CreateNewMapPoints函数中通过三角化也会生成MapPoints
                     // 这些MapPoints都会经过MapPointCulling函数的检验
@@ -806,9 +808,7 @@ void LocalMapping::KeyFrameCulling()
         // 步骤2：提取每个共视关键帧的MapPoints
         const vector<MapPoint*> vpMapPoints = pKF->GetMapPointMatches();
 
-        int /*nObs = 2;
-        if(mbMonocular)*/
-            nObs = 3;
+        int nObs = 3;
         const int thObs=nObs;
         int nRedundantObservations=0;
         int nMPs=0;

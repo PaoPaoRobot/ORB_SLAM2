@@ -375,7 +375,7 @@ void KeyFrame::UpdateConnections()
     vector<MapPoint*> vpMP;
 
     {
-        // 获得该关键帧的所有3d
+        // 获得该关键帧的所有3D点
         unique_lock<mutex> lockMPs(mMutexFeatures);
         vpMP = mvpMapPoints;
     }

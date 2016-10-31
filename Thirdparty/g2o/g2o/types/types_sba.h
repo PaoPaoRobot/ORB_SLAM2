@@ -35,6 +35,9 @@
 
 namespace g2o {
 
+// BaseVertex  顶点SE3
+// 6, SE3Quat  最小表示为6个参数，内部为四元数
+// _estimate   w2c(Tcw)，from world to camera
 /**
  * \brief Point vertex, XYZ
  */

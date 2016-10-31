@@ -28,8 +28,6 @@
 #include "Thirdparty/g2o/g2o/types/types_six_dof_expmap.h"
 #include "Thirdparty/g2o/g2o/types/types_seven_dof_expmap.h"
 
-#include "Thirdparty/g2o/g2o/core/batch_stats.h"
-
 #include<Eigen/StdVector>
 
 #include "Converter.h"
@@ -539,7 +537,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
 {
     // 该优化函数用于LocalMapping线程的局部BA优化
 
-    // Local KeyFrames: First Breath Search from Current Keyframe
+    // Local KeyFrames: First Breadth Search from Current Keyframe
     list<KeyFrame*> lLocalKeyFrames;
 
     // 步骤1：将当前关键帧加入lLocalKeyFrames
