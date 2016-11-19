@@ -326,7 +326,7 @@ void Tracking::Track()
         mState = NOT_INITIALIZED;
     }
 
-    // mLastProcessedState存储了Tracking最新的状态，这个变量有点多余
+    // mLastProcessedState存储了Tracking最新的状态，用于FrameDrawer中的绘制
     mLastProcessedState=mState;
 
     // Get Map Mutex -> Map cannot be changed
@@ -659,7 +659,7 @@ void Tracking::StereoInitialization()
             {
                 // 步骤4.1：通过反投影得到该特征点的3D坐标
                 cv::Mat x3D = mCurrentFrame.UnprojectStereo(i);
-                // 步骤4.2：将3D点构造为MapPoin
+                // 步骤4.2：将3D点构造为MapPoint
                 MapPoint* pNewMP = new MapPoint(x3D,pKFini,mpMap);
 
                 // 步骤4.3：为该MapPoint添加属性：
@@ -1495,7 +1495,7 @@ void Tracking::CreateNewKeyFrame()
 void Tracking::SearchLocalPoints()
 {
     // Do not search map points already matched
-    // 步骤1：遍历在当前帧的mvpMapPoints，标记这些MapPoints不参与之后的搜索
+    // 步骤1：遍历当前帧的mvpMapPoints，标记这些MapPoints不参与之后的搜索
     // 因为当前的mvpMapPoints一定在当前帧的视野中
     for(vector<MapPoint*>::iterator vit=mCurrentFrame.mvpMapPoints.begin(), vend=mCurrentFrame.mvpMapPoints.end(); vit!=vend; vit++)
     {
@@ -1582,7 +1582,7 @@ void Tracking::UpdateLocalMap()
 /**
  * @brief 更新局部关键点，called by UpdateLocalMap()
  * 
- * 局部关键帧mvpLocalKeyFrames的MapPoints更新mvpLocalMapPoints
+ * 局部关键帧mvpLocalKeyFrames的MapPoints，更新mvpLocalMapPoints
  */
 void Tracking::UpdateLocalPoints()
 {

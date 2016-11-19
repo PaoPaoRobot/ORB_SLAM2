@@ -32,12 +32,13 @@ namespace ORB_SLAM2
 FrameDrawer::FrameDrawer(Map* pMap):mpMap(pMap)
 {
     mState=Tracking::SYSTEM_NOT_READY;
-    // 存储用于画图的Frame信息
-    // 包括：图像 特征点连线形成的轨迹（初始化时） 框（跟踪时的MapPoint） 圈（跟踪时的特征点）
+    // 初始化图像显示画布
+    // 包括：图像、特征点连线形成的轨迹（初始化时）、框（跟踪时的MapPoint）、圈（跟踪时的特征点）
+    // ！！！固定画布大小为640*480
     mIm = cv::Mat(480,640,CV_8UC3, cv::Scalar(0,0,0));
 }
 
-// 准备需要显示的信息，包括图像、状态、其它的提示
+// 准备需要显示的信息，包括图像、特征点、地图、跟踪状态
 cv::Mat FrameDrawer::DrawFrame()
 {
     cv::Mat im;
@@ -48,14 +49,16 @@ cv::Mat FrameDrawer::DrawFrame()
     int state; // Tracking state
 
     //Copy variables within scoped mutex
-    // 将成员变量赋值给局部变量，加互斥锁
+    // 步骤1：将成员变量赋值给局部变量（包括图像、状态、其它的提示）
+    // 加互斥锁，避免与FrameDrawer::Update函数中图像拷贝发生冲突
     {
         unique_lock<mutex> lock(mMutex);
         state=mState;
         if(mState==Tracking::SYSTEM_NOT_READY)
             mState=Tracking::NO_IMAGES_YET;
 
-        mIm.copyTo(im);// 这里使用深拷贝是因为后面会把单通道灰度图像转为3通道图像
+        // 这里使用copyTo进行深拷贝是因为后面会把单通道灰度图像转为3通道图像
+        mIm.copyTo(im);
 
         if(mState==Tracking::NOT_INITIALIZED)
         {
@@ -79,7 +82,8 @@ cv::Mat FrameDrawer::DrawFrame()
         cvtColor(im,im,CV_GRAY2BGR);
 
     //Draw
-    // 当前帧的特征坐标与初始帧的特征点坐标连成线，形成轨迹
+    // 步骤2：绘制初始化轨迹连线，绘制特征点边框（特征点用小框圈住）
+    // 步骤2.1：初始化时，当前帧的特征坐标与初始帧的特征点坐标连成线，形成轨迹
     if(state==Tracking::NOT_INITIALIZED) //INITIALIZING
     {
         for(unsigned int i=0; i<vMatches.size(); i++)
@@ -89,7 +93,7 @@ cv::Mat FrameDrawer::DrawFrame()
                 cv::line(im,vIniKeys[i].pt,vCurrentKeys[vMatches[i]].pt,
                         cv::Scalar(0,255,0));
             }
-        }        
+        }
     }
     else if(state==Tracking::OK) //TRACKING
     {
@@ -102,6 +106,7 @@ cv::Mat FrameDrawer::DrawFrame()
         {
             if(vbVO[i] || vbMap[i])
             {
+                //在特征点附近正方形选择四个点
                 cv::Point2f pt1,pt2;
                 pt1.x=vCurrentKeys[i].pt.x-r;
                 pt1.y=vCurrentKeys[i].pt.y-r;
@@ -109,16 +114,25 @@ cv::Mat FrameDrawer::DrawFrame()
                 pt2.y=vCurrentKeys[i].pt.y+r;
 
                 // This is a match to a MapPoint in the map
+                // 步骤2.2：正常跟踪时，在画布im中标注特征点
                 if(vbMap[i])
                 {
+<<<<<<< HEAD
                     // 绿色，表示在MapPoint对应的特征点
+=======
+                    //通道顺序为bgr，地图中MapPoints用绿色圆点表示，并用绿色小方框圈住
+>>>>>>> origin/wubo&jiajia
                     cv::rectangle(im,pt1,pt2,cv::Scalar(0,255,0));
                     cv::circle(im,vCurrentKeys[i].pt,2,cv::Scalar(0,255,0),-1);
                     mnTracked++;
                 }
                 else // This is match to a "visual odometry" MapPoint created in the last frame
                 {
+<<<<<<< HEAD
                     // 蓝色，表示上一帧visual odometry产生的点对应的特征点
+=======
+                    //通道顺序为bgr，仅当前帧能观测到的MapPoints用蓝色圆点表示，并用蓝色小方框圈住
+>>>>>>> origin/wubo&jiajia
                     cv::rectangle(im,pt1,pt2,cv::Scalar(255,0,0));
                     cv::circle(im,vCurrentKeys[i].pt,2,cv::Scalar(255,0,0),-1);
                     mnTrackedVO++;
@@ -172,14 +186,18 @@ void FrameDrawer::DrawTextInfo(cv::Mat &im, int nState, cv::Mat &imText)
 
 }
 
+//将跟踪线程的数据拷贝到绘图线程（图像、特征点、地图、跟踪状态）
 void FrameDrawer::Update(Tracking *pTracker)
 {
     unique_lock<mutex> lock(mMutex);
+    //拷贝跟踪线程的图像
     pTracker->mImGray.copyTo(mIm);
+    //拷贝跟踪线程的特征点
     mvCurrentKeys=pTracker->mCurrentFrame.mvKeys;
     N = mvCurrentKeys.size();
     mvbVO = vector<bool>(N,false);
     mvbMap = vector<bool>(N,false);
+    //mbOnlyTracking等于false表示正常VO模式（有地图更新），mbOnlyTracking等于true表示用户手动选择定位模式
     mbOnlyTracking = pTracker->mbOnlyTracking;
 
 
@@ -197,6 +215,7 @@ void FrameDrawer::Update(Tracking *pTracker)
             {
                 if(!pTracker->mCurrentFrame.mvbOutlier[i])
                 {
+                    //该mappoints可以被多帧观测到，则为有效的地图点
                     if(pMP->Observations()>0)
                         mvbMap[i]=true;
                     else
