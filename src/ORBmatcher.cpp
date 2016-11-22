@@ -949,7 +949,15 @@ int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F
     return nmatches;
 }
 
-// 将MapPoints投影到关键帧pKF中，并判断是否有重复的MapPoints
+/**
+ * @brief 将MapPoints投影到关键帧pKF中，并判断是否有重复的MapPoints
+ * 1.如果MapPoint能匹配关键帧的特征点，并且该点有对应的MapPoint，那么将两个MapPoint合并（选择观测数多的）
+ * 2.如果MapPoint能匹配关键帧的特征点，并且该点没有对应的MapPoint，那么为该点添加MapPoint
+ * @param  pKF         相邻关键帧
+ * @param  vpMapPoints 当前关键帧的MapPoints
+ * @param  th          搜索半径的因子
+ * @return             重复MapPoints的数量
+ */
 int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const float th)
 {
     cv::Mat Rcw = pKF->GetRotation();

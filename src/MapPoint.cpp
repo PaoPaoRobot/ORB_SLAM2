@@ -234,11 +234,13 @@ void MapPoint::Replace(MapPoint* pMP)
 
         if(!pMP->IsInKeyFrame(pKF))
         {
-            pKF->ReplaceMapPointMatch(mit->second, pMP);// 让KeyFrame用pMP替换掉现有的MapPoint
+            pKF->ReplaceMapPointMatch(mit->second, pMP);// 让KeyFrame用pMP替换掉原来的MapPoint
             pMP->AddObservation(pKF,mit->second);// 让MapPoint替换掉对应的KeyFrame
         }
-        else// 这个地方不理解 （wubo???）
+        else
         {
+            // 产生冲突，即pKF中有两个特征点a,b（这两个特征点的描述子是近似相同的），这两个特征点对应两个MapPoint为this,pMP
+            // 然而在fuse的过程中pMP的观测更多，需要替换this，因此保留b与pMP的联系，去掉a与this的联系
             pKF->EraseMapPointMatch(mit->second);
         }
     }

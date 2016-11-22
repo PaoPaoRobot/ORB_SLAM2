@@ -266,20 +266,23 @@ void LocalMapping::MapPointCulling()
         else if(((int)nCurrentKFid-(int)pMP->mnFirstKFid)>=2 && pMP->Observations()<=cnThObs)
         {
             // 步骤3：将不满足VI-B条件的MapPoint剔除
-            // VI-B 条件2：从该点建立开始，到现在已经过了不小于2帧，
+            // VI-B 条件2：从该点建立开始，到现在已经过了不小于2个关键帧
             // 但是观测到该点的关键帧数却不超过cnThObs帧，那么该点检验不合格
             pMP->SetBadFlag();
             lit = mlpRecentAddedMapPoints.erase(lit);
         }
         else if(((int)nCurrentKFid-(int)pMP->mnFirstKFid)>=3)
-            // 步骤4：从建立该点开始，已经过了3帧，放弃对该MapPoint的检测
+            // 步骤4：从建立该点开始，已经过了3个关键帧而没有被剔除，则认为是质量高的点
+            // 因此没有SetBadFlag()，仅从队列中删除，放弃继续对该MapPoint的检测
             lit = mlpRecentAddedMapPoints.erase(lit);
         else
             lit++;
     }
 }
 
-// 相机运动过程中和共视程度比较高的关键帧通过三角化恢复出一些MapPoints
+/**
+ * 相机运动过程中和共视程度比较高的关键帧通过三角化恢复出一些MapPoints
+ */
 void LocalMapping::CreateNewMapPoints()
 {
     // Retrieve neighbor keyframes in covisibility graph
@@ -579,7 +582,9 @@ void LocalMapping::CreateNewMapPoints()
     }
 }
 
-// 检查并融合当前关键帧与相邻帧（两级相邻）重复的MapPoints
+/**
+ * 检查并融合当前关键帧与相邻帧（两级相邻）重复的MapPoints
+ */
 void LocalMapping::SearchInNeighbors()
 {
     // Retrieve neighbor keyframes
@@ -620,7 +625,7 @@ void LocalMapping::SearchInNeighbors()
         KeyFrame* pKFi = *vit;
 
         // 投影当前帧的MapPoints到相邻关键帧pKFi中，并判断是否有重复的MapPoints
-        // 1.如果MapPoint能匹配关键帧的特征点，并且该点有对应的MapPoint，那么将两个MapPoint合并
+        // 1.如果MapPoint能匹配关键帧的特征点，并且该点有对应的MapPoint，那么将两个MapPoint合并（选择观测数多的）
         // 2.如果MapPoint能匹配关键帧的特征点，并且该点没有对应的MapPoint，那么为该点添加MapPoint
         matcher.Fuse(pKFi,vpMapPointMatches);
     }
@@ -683,7 +688,12 @@ void LocalMapping::SearchInNeighbors()
     mpCurrentKeyFrame->UpdateConnections();
 }
 
-// 根据两关键帧的姿态计算两个关键帧之间的基本矩阵
+/**
+ * 根据两关键帧的姿态计算两个关键帧之间的基本矩阵
+ * @param  pKF1 关键帧1
+ * @param  pKF2 关键帧2
+ * @return      基本矩阵
+ */
 cv::Mat LocalMapping::ComputeF12(KeyFrame *&pKF1, KeyFrame *&pKF2)
 {
     // Essential Matrix: t12叉乘R12
