@@ -260,6 +260,16 @@ bool LoopClosing::DetectLoop()
     return false;
 }
 
+/**
+ * @brief 计算当前帧与闭环帧的Sim3变换等
+ *
+ * 1. 通过Bow加速描述子的匹配，利用RANSAC粗略地计算出当前帧与闭环帧的Sim3（当前帧---闭环帧）
+ * 2. 根据估计的Sim3，对3D点进行投影找到更多匹配，通过优化的方法计算更精确的Sim3（当前帧---闭环帧）
+ * 3. 将闭环帧以及闭环帧相连的关键帧的MapPoints与当前帧的点进行匹配（当前帧---闭环帧+相连关键帧）
+ * 
+ * 注意以上匹配的结果均都存在成员变量mvpCurrentMatchedPoints中，
+ * 实际的更新步骤见CorrectLoop()步骤3：Start Loop Fusion
+ */
 bool LoopClosing::ComputeSim3()
 {
     // For each consistent loop candidate we try to compute a Sim3
@@ -338,7 +348,7 @@ bool LoopClosing::ComputeSim3()
             // Perform 5 Ransac Iterations
             vector<bool> vbInliers;
             int nInliers;
-            bool bNoMore;// 这是局部变量，应该赋初始值false，(wubo???)
+            bool bNoMore;// 这是局部变量，在pSolver->iterate(...)内进行初始化
 
             // 步骤3：对步骤2中有较好的匹配的关键帧求取Sim3变换
             Sim3Solver* pSolver = vpSim3Solvers[i];
@@ -473,6 +483,15 @@ bool LoopClosing::ComputeSim3()
     }
 }
 
+/**
+ * @brief 闭环
+ *
+ * 1. 通过求解的Sim3以及相对姿态关系，调整与当前帧相连的关键帧位姿以及这些关键帧观测到的MapPoints的位置（相连关键帧---当前帧）
+ * 2. 将闭环帧以及闭环帧相连的关键帧的MapPoints和与当前帧相连的关键帧的点进行匹配（相连关键帧+当前帧---闭环帧+相连关键帧）
+ * 3. 通过MapPoints的匹配关系更新这些帧之间的连接关系，即更新covisibility graph
+ * 4. 对Essential Graph（Pose Graph）进行优化，MapPoints的位置则根据优化后的位姿做相对应的调整
+ * 5. 创建线程进行全局Bundle Adjustment
+ */
 void LoopClosing::CorrectLoop()
 {
     cout << "Loop detected!" << endl;
@@ -510,9 +529,10 @@ void LoopClosing::CorrectLoop()
     mpCurrentKF->UpdateConnections();
 
     // Retrive keyframes connected to the current keyframe and compute corrected Sim3 pose by propagation
-    // 步骤2：通过位姿传播，得到Sim3优化后，其它与当前帧相连关键帧的位姿，以及它们的MapPoints
+    // 步骤2：通过位姿传播，得到Sim3优化后，与当前帧相连的关键帧的位姿，以及它们的MapPoints
     // 当前帧与世界坐标系之间的Sim变换在ComputeSim3函数中已经确定并优化，
-    // 通过关系传播，可以确定这些相连的关键帧与世界坐标系之间的Sim变换
+    // 通过相对位姿关系，可以确定这些相连的关键帧与世界坐标系之间的Sim3变换
+
     // 取出与当前帧相连的关键帧，包括当前关键帧
     mvpCurrentConnectedKFs = mpCurrentKF->GetVectorCovisibleKeyFrames();
     mvpCurrentConnectedKFs.push_back(mpCurrentKF);
@@ -575,7 +595,7 @@ void LoopClosing::CorrectLoop()
                     continue;
                 if(pMPi->isBad())
                     continue;
-                if(pMPi->mnCorrectedByKF==mpCurrentKF->mnId)// 当前帧的MapPoint固定不动
+                if(pMPi->mnCorrectedByKF==mpCurrentKF->mnId) // 防止重复修正
                     continue;
 
                 // Project with non-corrected pose and project back with corrected pose

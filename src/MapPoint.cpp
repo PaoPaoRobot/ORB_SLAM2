@@ -441,8 +441,8 @@ void MapPoint::UpdateNormalAndDepth()
         n++;
     } 
 
-    cv::Mat PC = Pos - pRefKF->GetCameraCenter(); // 3D点P在相机坐标系下的坐标
-    const float dist = cv::norm(PC); // 相机坐标系下该点到参考关键帧相机的距离
+    cv::Mat PC = Pos - pRefKF->GetCameraCenter(); // 参考关键帧相机指向3D点的向量（在世界坐标系下的表示）
+    const float dist = cv::norm(PC); // 该点到参考关键帧相机的距离
     const int level = pRefKF->mvKeysUn[observations[pRefKF]].octave;
     const float levelScaleFactor =  pRefKF->mvScaleFactors[level];
     const int nLevels = pRefKF->mnScaleLevels; // 金字塔层数

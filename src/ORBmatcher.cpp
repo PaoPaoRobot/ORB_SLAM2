@@ -592,7 +592,7 @@ int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f
 /**
  * @brief 通过词包，对关键帧的特征点进行跟踪，该函数用于闭环检测时两个关键帧间的特征点匹配
  * 
- × 通过bow对pKF和F中的特征点进行快速匹配（不属于同一node的特征点直接跳过匹配） \n
+ * 通过bow对pKF和F中的特征点进行快速匹配（不属于同一node的特征点直接跳过匹配） \n
  * 对属于同一node的特征点通过描述子距离进行匹配 \n
  * 根据匹配，更新vpMatches12 \n
  * 通过距离阈值、比例阈值和角度投票进行剔除误匹配
