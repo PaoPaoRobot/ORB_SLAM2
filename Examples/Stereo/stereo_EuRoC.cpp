@@ -69,7 +69,7 @@ int main(int argc, char **argv)
     cout << "Start processing sequence ..." << endl;
     cout << "Images in the sequence: " << nImages << endl << endl;
 
-    Rectify rectifyer(argv[3]);
+    Rectify rectifyer(argv[2]);
 
     // Main loop
     cv::Mat imLeft, imRight;
