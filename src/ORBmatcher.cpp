@@ -886,6 +886,7 @@ int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F
                 {
                     const cv::KeyPoint &kp2 = pKF2->mvKeysUn[bestIdx2];
                     vMatches12[idx1]=bestIdx2;
+                    vbMatched2[bestIdx2]=true;
                     nmatches++;
 
                     if(mbCheckOrientation)
