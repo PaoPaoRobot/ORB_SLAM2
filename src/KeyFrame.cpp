@@ -238,7 +238,7 @@ vector<KeyFrame*> KeyFrame::GetCovisiblesByWeight(const int &w)
     // 从mvOrderedWeights找出第一个大于w的那个迭代器
     // 这里应该使用lower_bound，因为lower_bound是返回小于等于，而upper_bound只能返回第一个大于的
     vector<int>::iterator it = upper_bound(mvOrderedWeights.begin(),mvOrderedWeights.end(),w,KeyFrame::weightComp);
-    if(it==mvOrderedWeights.end())
+    if(it==mvOrderedWeights.end() && *mvOrderedWeights.rbegin()<w)
         return vector<KeyFrame*>();
     else
     {
