@@ -74,8 +74,8 @@ SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native")
 SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -march=native") 
 
 # activate warnings !!!
-SET(g2o_C_FLAGS "${g2o_C_FLAGS} -Wall")
-SET(g2o_CXX_FLAGS "${g2o_CXX_FLAGS} -Wall")
+SET(g2o_C_FLAGS "${g2o_C_FLAGS} -Wall -Wno-deprecated-declarations")
+SET(g2o_CXX_FLAGS "${g2o_CXX_FLAGS} -Wall -Wno-deprecated-declarations")
 
 # specifying compiler flags
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${g2o_CXX_FLAGS}")
