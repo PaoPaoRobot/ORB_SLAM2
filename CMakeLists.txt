@@ -69,6 +69,9 @@ target_link_libraries(stereo_kitti ${PROJECT_NAME})
 add_executable(stereo_EuRoC Examples/Stereo/stereo_EuRoC.cpp)
 target_link_libraries(stereo_EuRoC ${PROJECT_NAME})
 
+add_executable(rgbd_tum Examples/RGB-D/rgbd_tum.cc)
+target_link_libraries(rgbd_tum ${PROJECT_NAME})
+
 # Build tools
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Vocabulary)
 add_executable(bin_vocabulary Vocabulary/bin_vocabulary.cpp)
